@@ -10,11 +10,6 @@ import {
 } from "./api/client.js";
 import { startOfMonthISO, todayISO } from "./utils/date.js";
 
-const statusLabels = {
-  present: "Có mặt",
-  absent: "Vắng",
-};
-
 function EmptyState({ children }) {
   return <div className="empty">{children}</div>;
 }
@@ -87,7 +82,8 @@ export function App() {
               attendance: {
                 id: row.attendance?.id,
                 date: attendanceDate,
-                status: field === "status" ? value : row.attendance?.status || "present",
+                status:
+                  field === "status" ? value : row.attendance?.status || "present",
               },
             }
           : row,
@@ -239,22 +235,27 @@ export function App() {
                         <td>{row.student.fullName}</td>
                         <td>{row.student.className}</td>
                         <td>
-                          <select
-                            value={row.attendance?.status || "present"}
-                            onChange={(event) =>
-                              updateAttendance(
-                                row.student.id,
-                                "status",
-                                event.target.value,
-                              )
-                            }
-                          >
-                            {Object.entries(statusLabels).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
+                          <label className="attendance-check">
+                            <input
+                              checked={
+                                (row.attendance?.status || "present") === "present"
+                              }
+                              onChange={(event) =>
+                                updateAttendance(
+                                  row.student.id,
+                                  "status",
+                                  event.target.checked ? "present" : "absent",
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span aria-hidden="true" className="checkmark" />
+                            <strong>
+                              {(row.attendance?.status || "present") === "present"
+                                ? "Có mặt"
+                                : "Vắng"}
+                            </strong>
+                          </label>
                         </td>
                       </tr>
                     ))}

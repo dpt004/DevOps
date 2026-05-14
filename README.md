@@ -10,6 +10,15 @@ Hệ thống quản lý điểm danh sinh viên theo ngày. Dự án được th
 - Xem lại danh sách điểm danh theo ngày
 - Thống kê số buổi có mặt theo từng sinh viên
 
+## Module chức năng
+
+- Authentication: đăng nhập, đăng xuất, phân quyền theo vai trò.
+- Student Management: thêm sinh viên, import Excel, quản lý danh sách sinh viên và lớp.
+- Attendance: điểm danh theo ngày bằng ô tích, cập nhật điểm danh, xem lịch sử theo ngày.
+- Report: thống kê chuyên cần và nền tảng để mở rộng xuất Excel/PDF.
+
+Phiên bản hiện tại tập trung vào mức tối thiểu của đồ án sinh viên: CRUD cơ bản sinh viên, import Excel, điểm danh theo ngày, xem danh sách điểm danh, thống kê số buổi có mặt, Docker, MySQL và CI.
+
 ## Kiến trúc
 
 ```mermaid
