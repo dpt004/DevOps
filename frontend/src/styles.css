@@ -242,6 +242,63 @@ th {
   text-transform: uppercase;
 }
 
+.attendance-check {
+  align-items: center;
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 0.95rem;
+  gap: 10px;
+  min-height: 40px;
+  user-select: none;
+}
+
+.attendance-check input {
+  block-size: 1px;
+  inline-size: 1px;
+  opacity: 0;
+  position: absolute;
+}
+
+.checkmark {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+  width: 28px;
+}
+
+.checkmark::after {
+  border-bottom: 3px solid #ffffff;
+  border-right: 3px solid #ffffff;
+  content: "";
+  display: block;
+  height: 12px;
+  opacity: 0;
+  transform: rotate(45deg) translate(-1px, -2px);
+  transition: opacity 120ms ease;
+  width: 7px;
+}
+
+.attendance-check input:checked + .checkmark {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.attendance-check input:checked + .checkmark::after {
+  opacity: 1;
+}
+
+.attendance-check input:focus-visible + .checkmark {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
 .two-column {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
