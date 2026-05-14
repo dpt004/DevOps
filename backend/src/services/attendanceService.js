@@ -61,6 +61,63 @@ export async function createStudent(payload) {
   };
 }
 
+export async function updateStudent(idValue, payload) {
+  const id = Number(idValue);
+  const studentCode = String(payload.studentCode || "").trim();
+  const fullName = String(payload.fullName || "").trim();
+  const className = String(payload.className || "").trim();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw Object.assign(new Error("Student id is invalid."), {
+      statusCode: 400,
+    });
+  }
+
+  if (!studentCode || !fullName || !className) {
+    throw Object.assign(
+      new Error("studentCode, fullName, and className are required."),
+      { statusCode: 400 },
+    );
+  }
+
+  const result = await query(
+    `
+      UPDATE students
+      SET student_code = ?, full_name = ?, class_name = ?
+      WHERE id = ?
+    `,
+    [studentCode, fullName, className, id],
+  );
+
+  if (result.affectedRows === 0) {
+    throw Object.assign(new Error("Student not found."), { statusCode: 404 });
+  }
+
+  return {
+    id,
+    studentCode,
+    fullName,
+    className,
+  };
+}
+
+export async function deleteStudent(idValue) {
+  const id = Number(idValue);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw Object.assign(new Error("Student id is invalid."), {
+      statusCode: 400,
+    });
+  }
+
+  const result = await query("DELETE FROM students WHERE id = ?", [id]);
+  if (result.affectedRows === 0) {
+    throw Object.assign(new Error("Student not found."), { statusCode: 404 });
+  }
+
+  return { id };
+}
+
 export async function getAttendanceByDate(dateValue) {
   const date = normalizeDate(dateValue);
   const result = await query(

@@ -6,18 +6,19 @@ Hệ thống quản lý điểm danh sinh viên theo ngày. Dự án được th
 
 - Import danh sách sinh viên từ file Excel (`.xlsx`, `.xls`, `.csv`)
 - Quản lý danh sách sinh viên
-- Điểm danh sinh viên theo ngày với trạng thái `Có mặt` hoặc `Vắng`
+- Đăng nhập và phân quyền `admin` / `teacher`
+- Điểm danh sinh viên theo ngày với 2 lựa chọn tích một trong hai: `Có mặt` hoặc `Vắng`
 - Xem lại danh sách điểm danh theo ngày
 - Thống kê số buổi có mặt theo từng sinh viên
 
 ## Module chức năng
 
 - Authentication: đăng nhập, đăng xuất, phân quyền theo vai trò.
-- Student Management: thêm sinh viên, import Excel, quản lý danh sách sinh viên và lớp.
-- Attendance: điểm danh theo ngày bằng ô tích, cập nhật điểm danh, xem lịch sử theo ngày.
+- Student Management: thêm/sửa/xóa sinh viên, import Excel, quản lý danh sách sinh viên và lớp.
+- Attendance: điểm danh theo ngày bằng hai ô tích loại trừ nhau, cập nhật điểm danh, xem lịch sử theo ngày.
 - Report: thống kê chuyên cần và nền tảng để mở rộng xuất Excel/PDF.
 
-Phiên bản hiện tại tập trung vào mức tối thiểu của đồ án sinh viên: CRUD cơ bản sinh viên, import Excel, điểm danh theo ngày, xem danh sách điểm danh, thống kê số buổi có mặt, Docker, MySQL và CI.
+Phiên bản hiện tại tập trung vào mức tối thiểu của đồ án sinh viên: đăng nhập, phân quyền, CRUD sinh viên, import Excel, điểm danh theo ngày, xem danh sách điểm danh, thống kê số buổi có mặt, Docker, MySQL và CI.
 
 ## Kiến trúc
 
@@ -76,6 +77,13 @@ URL demo:
 - Backend health: http://localhost:4000/api/health
 - MySQL host port: `3307`
 
+Tài khoản demo:
+
+| Username | Password | Role |
+| --- | --- | --- |
+| admin | Admin@123 | Quản trị, được thêm/sửa/xóa/import sinh viên |
+| teacher | Teacher@123 | Giảng viên, được điểm danh và xem báo cáo |
+
 Kiểm tra container và log:
 
 ```powershell
@@ -106,11 +114,17 @@ Sheet đầu tiên cần có các cột:
 
 Backend cũng chấp nhận các tên cột gần tương đương như `student_code`, `full_name`, `class_name`, `Mã sinh viên`, `Ho ten`, `Lop`.
 
+Các file mẫu theo lớp nằm trong `docs/import-samples/`.
+
 ## API Chính
 
 - `GET /api/health`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/students`
 - `POST /api/students`
+- `PUT /api/students/:id`
+- `DELETE /api/students/:id`
 - `POST /api/students/import`
 - `GET /api/attendance?date=YYYY-MM-DD`
 - `POST /api/attendance`

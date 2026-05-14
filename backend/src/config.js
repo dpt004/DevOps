@@ -11,6 +11,13 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: optionalInt(process.env.PORT, 4000),
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:8080",
+  auth: {
+    tokenSecret:
+      process.env.AUTH_TOKEN_SECRET || "dev_only_change_this_secret",
+    tokenTtlSeconds: optionalInt(process.env.AUTH_TOKEN_TTL_SECONDS, 28800),
+    adminPassword: process.env.SEED_ADMIN_PASSWORD || "Admin@123",
+    teacherPassword: process.env.SEED_TEACHER_PASSWORD || "Teacher@123",
+  },
   database: {
     host: process.env.DB_HOST || "localhost",
     port: optionalInt(process.env.DB_PORT, 3306),
