@@ -34,6 +34,10 @@ services:
       DB_USER: ${DB_USER:-attendance}
       DB_PASSWORD: ${DB_PASSWORD:-attendance_password}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-dev_only_change_this_secret}
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-28800}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@123}
+      SEED_TEACHER_PASSWORD: ${SEED_TEACHER_PASSWORD:-Teacher@123}
     depends_on:
       mysql:
         condition: service_healthy

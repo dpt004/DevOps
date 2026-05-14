@@ -26,6 +26,17 @@ const seedStudents = [
 
 export async function migrate() {
   await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(64) UNIQUE NOT NULL,
+      full_name VARCHAR(160) NOT NULL,
+      role VARCHAR(32) NOT NULL CHECK (role IN ('admin', 'teacher')),
+      password_hash VARCHAR(128) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
     CREATE TABLE IF NOT EXISTS students (
       id INT AUTO_INCREMENT PRIMARY KEY,
       student_code VARCHAR(32) UNIQUE NOT NULL,
@@ -54,6 +65,42 @@ export async function migrate() {
 }
 
 export async function seed() {
+  const { config } = await import("../config.js");
+  const { hashPassword } = await import("../services/authService.js");
+  const seedUsers = [
+    {
+      username: "admin",
+      fullName: "System Admin",
+      role: "admin",
+      password: config.auth.adminPassword,
+    },
+    {
+      username: "teacher",
+      fullName: "Attendance Teacher",
+      role: "teacher",
+      password: config.auth.teacherPassword,
+    },
+  ];
+
+  for (const user of seedUsers) {
+    await query(
+      `
+        INSERT INTO users (username, full_name, role, password_hash)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          full_name = VALUES(full_name),
+          role = VALUES(role),
+          password_hash = VALUES(password_hash)
+      `,
+      [
+        user.username,
+        user.fullName,
+        user.role,
+        hashPassword(user.password, user.username),
+      ],
+    );
+  }
+
   for (const student of seedStudents) {
     await query(
       `
@@ -67,5 +114,8 @@ export async function seed() {
     );
   }
 
-  logger.info("database seed completed", { students: seedStudents.length });
+  logger.info("database seed completed", {
+    users: seedUsers.length,
+    students: seedStudents.length,
+  });
 }

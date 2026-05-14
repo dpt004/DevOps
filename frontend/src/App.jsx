@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  clearStoredSession,
   createStudent,
+  deleteStudent,
   getAttendance,
   getHealth,
   getStats,
   getStudents,
+  getStoredSession,
   importStudents,
+  login,
+  logout,
   saveAttendance,
+  setStoredSession,
+  updateStudent,
 } from "./api/client.js";
 import { startOfMonthISO, todayISO } from "./utils/date.js";
 
@@ -15,6 +22,7 @@ function EmptyState({ children }) {
 }
 
 export function App() {
+  const [session, setSession] = useState(getStoredSession());
   const [activeTab, setActiveTab] = useState("attendance");
   const [health, setHealth] = useState(null);
   const [students, setStudents] = useState([]);
@@ -26,12 +34,18 @@ export function App() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [studentForm, setStudentForm] = useState({
+    id: null,
     studentCode: "",
     fullName: "",
     className: "",
   });
   const [selectedFile, setSelectedFile] = useState(null);
+  const [loginForm, setLoginForm] = useState({
+    username: "admin",
+    password: "Admin@123",
+  });
 
+  const isAdmin = session?.user?.role === "admin";
   const studentCount = students.length;
   const presentToday = useMemo(
     () =>
@@ -60,11 +74,19 @@ export function App() {
   }
 
   useEffect(() => {
-    loadBaseData()
-      .then(() => loadAttendance(attendanceDate))
-      .then(() => loadStats())
-      .catch((err) => setError(err.message));
-  }, []);
+    if (session) {
+      loadBaseData()
+        .then(() => loadAttendance(attendanceDate))
+        .then(() => loadStats())
+        .catch((err) => {
+          if (err.status === 401) {
+            clearStoredSession();
+            setSession(null);
+          }
+          setError(err.message);
+        });
+    }
+  }, [session]);
 
   async function refreshAll() {
     setError("");
@@ -112,14 +134,37 @@ export function App() {
     setError("");
     setMessage("");
 
-    await createStudent(studentForm);
+    if (studentForm.id) {
+      await updateStudent(studentForm);
+    } else {
+      await createStudent(studentForm);
+    }
+
     setStudentForm({
+      id: null,
       studentCode: "",
       fullName: "",
       className: "",
     });
     await refreshAll();
-    setMessage("Đã thêm sinh viên.");
+    setMessage(studentForm.id ? "Đã cập nhật sinh viên." : "Đã thêm sinh viên.");
+  }
+
+  async function handleDeleteStudent(studentId) {
+    setError("");
+    setMessage("");
+    await deleteStudent(studentId);
+    await refreshAll();
+    setMessage("Đã xóa sinh viên.");
+  }
+
+  function editStudent(student) {
+    setStudentForm({
+      id: student.id,
+      studentCode: student.studentCode,
+      fullName: student.fullName,
+      className: student.className,
+    });
   }
 
   async function handleImportStudents(event) {
@@ -146,6 +191,67 @@ export function App() {
     await loadAttendance(value);
   }
 
+  async function handleLogin(event) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    const loginSession = await login(loginForm.username, loginForm.password);
+    setStoredSession(loginSession);
+    setSession(loginSession);
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // Local logout still clears the session if the token has already expired.
+    }
+    clearStoredSession();
+    setSession(null);
+    setHealth(null);
+    setStudents([]);
+    setAttendanceRows([]);
+    setStats([]);
+    setMessage("");
+    setError("");
+  }
+
+  if (!session) {
+    return (
+      <main className="login-shell">
+        <form className="login-panel" onSubmit={handleLogin}>
+          <p className="eyebrow">Student Attendance System</p>
+          <h1>Đăng nhập</h1>
+          <p className="hint">Tài khoản demo: admin/Admin@123 hoặc teacher/Teacher@123.</p>
+          {error && <section className="notice error">{error}</section>}
+          <label>
+            Tên đăng nhập
+            <input
+              autoComplete="username"
+              value={loginForm.username}
+              onChange={(event) =>
+                setLoginForm({ ...loginForm, username: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Mật khẩu
+            <input
+              autoComplete="current-password"
+              type="password"
+              value={loginForm.password}
+              onChange={(event) =>
+                setLoginForm({ ...loginForm, password: event.target.value })
+              }
+            />
+          </label>
+          <button type="submit">Đăng nhập</button>
+        </form>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -156,6 +262,13 @@ export function App() {
         <div className={`health ${health?.status === "ok" ? "ok" : "down"}`}>
           <span />
           <strong>{health?.database === "ok" ? "MySQL OK" : "Đang kiểm tra"}</strong>
+        </div>
+        <div className="user-box">
+          <strong>{session.user.fullName}</strong>
+          <span>{session.user.role === "admin" ? "Quản trị" : "Giảng viên"}</span>
+          <button type="button" onClick={handleLogout}>
+            Đăng xuất
+          </button>
         </div>
       </header>
 
@@ -235,27 +348,27 @@ export function App() {
                         <td>{row.student.fullName}</td>
                         <td>{row.student.className}</td>
                         <td>
-                          <label className="attendance-check">
-                            <input
-                              checked={
-                                (row.attendance?.status || "present") === "present"
-                              }
-                              onChange={(event) =>
-                                updateAttendance(
-                                  row.student.id,
-                                  "status",
-                                  event.target.checked ? "present" : "absent",
-                                )
-                              }
-                              type="checkbox"
-                            />
-                            <span aria-hidden="true" className="checkmark" />
-                            <strong>
-                              {(row.attendance?.status || "present") === "present"
-                                ? "Có mặt"
-                                : "Vắng"}
-                            </strong>
-                          </label>
+                          <div className="attendance-options">
+                            {[
+                              ["present", "Có mặt"],
+                              ["absent", "Vắng"],
+                            ].map(([status, label]) => (
+                              <label className="attendance-choice" key={status}>
+                                <input
+                                  checked={
+                                    (row.attendance?.status || "present") === status
+                                  }
+                                  name={`attendance-${row.student.id}`}
+                                  onChange={() =>
+                                    updateAttendance(row.student.id, "status", status)
+                                  }
+                                  type="radio"
+                                />
+                                <span aria-hidden="true" className="checkmark" />
+                                <strong>{label}</strong>
+                              </label>
+                            ))}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -272,21 +385,24 @@ export function App() {
 
       {activeTab === "students" && (
         <section className="two-column">
-          <form className="panel" onSubmit={handleImportStudents}>
-            <h2>Import Excel</h2>
-            <p className="hint">Cột hỗ trợ: MSSV, Họ tên, Lớp.</p>
-            <input
-              accept=".xlsx,.xls,.csv"
-              type="file"
-              onChange={(event) => setSelectedFile(event.target.files[0])}
-            />
-            <div className="actions">
-              <button type="submit">Import danh sách</button>
-            </div>
-          </form>
+          {isAdmin && (
+            <form className="panel" onSubmit={handleImportStudents}>
+              <h2>Import Excel</h2>
+              <p className="hint">Cột hỗ trợ: MSSV, Họ tên, Lớp.</p>
+              <input
+                accept=".xlsx,.xls,.csv"
+                type="file"
+                onChange={(event) => setSelectedFile(event.target.files[0])}
+              />
+              <div className="actions">
+                <button type="submit">Import danh sách</button>
+              </div>
+            </form>
+          )}
 
+          {isAdmin && (
           <form className="panel" onSubmit={handleCreateStudent}>
-            <h2>Thêm sinh viên</h2>
+            <h2>{studentForm.id ? "Sửa sinh viên" : "Thêm sinh viên"}</h2>
             <input
               placeholder="MSSV"
               value={studentForm.studentCode}
@@ -309,9 +425,26 @@ export function App() {
               }
             />
             <div className="actions">
-              <button type="submit">Thêm</button>
+              {studentForm.id && (
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    setStudentForm({
+                      id: null,
+                      studentCode: "",
+                      fullName: "",
+                      className: "",
+                    })
+                  }
+                  type="button"
+                >
+                  Hủy
+                </button>
+              )}
+              <button type="submit">{studentForm.id ? "Lưu sửa" : "Thêm"}</button>
             </div>
           </form>
+          )}
 
           <section className="panel wide">
             <h2>Danh sách sinh viên</h2>
@@ -322,6 +455,7 @@ export function App() {
                     <th>MSSV</th>
                     <th>Họ tên</th>
                     <th>Lớp</th>
+                    {isAdmin && <th>Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -330,6 +464,26 @@ export function App() {
                       <td>{student.studentCode}</td>
                       <td>{student.fullName}</td>
                       <td>{student.className}</td>
+                      {isAdmin && (
+                        <td>
+                          <div className="row-actions">
+                            <button
+                              className="secondary"
+                              onClick={() => editStudent(student)}
+                              type="button"
+                            >
+                              Sửa
+                            </button>
+                            <button
+                              className="danger"
+                              onClick={() => handleDeleteStudent(student.id)}
+                              type="button"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
