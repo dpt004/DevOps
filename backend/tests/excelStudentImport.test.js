@@ -34,3 +34,23 @@ test("normalizeStudentRows de-duplicates by student code", () => {
     },
   ]);
 });
+
+test("normalizeStudentRows can force one class for the whole import file", () => {
+  const rows = [
+    { MSSV: "SV201", "Ho ten": "Le Quoc Anh", Lop: "OLD" },
+    { MSSV: "SV202", "Ho ten": "Nguyen Thanh Binh", Lop: "OLD" },
+  ];
+
+  assert.deepEqual(normalizeStudentRows(rows, "D21CQCN02"), [
+    {
+      studentCode: "SV201",
+      fullName: "Le Quoc Anh",
+      className: "D21CQCN02",
+    },
+    {
+      studentCode: "SV202",
+      fullName: "Nguyen Thanh Binh",
+      className: "D21CQCN02",
+    },
+  ]);
+});

@@ -44,13 +44,14 @@ function readField(row, aliases) {
   return "";
 }
 
-export function normalizeStudentRows(rows) {
+export function normalizeStudentRows(rows, importClassName = "") {
   const studentsByCode = new Map();
+  const forcedClassName = String(importClassName || "").trim();
 
   for (const row of rows) {
     const studentCode = readField(row, headerAliases.studentCode);
     const fullName = readField(row, headerAliases.fullName);
-    const className = readField(row, headerAliases.className);
+    const className = forcedClassName || readField(row, headerAliases.className);
 
     if (!studentCode && !fullName && !className) {
       continue;
@@ -75,7 +76,7 @@ export function normalizeStudentRows(rows) {
   return [...studentsByCode.values()];
 }
 
-export function parseStudentWorkbook(buffer) {
+export function parseStudentWorkbook(buffer, importClassName = "") {
   const workbook = xlsx.read(buffer, { type: "buffer", codepage: 65001 });
   const firstSheetName = workbook.SheetNames[0];
 
@@ -88,7 +89,7 @@ export function parseStudentWorkbook(buffer) {
   const rows = xlsx.utils.sheet_to_json(workbook.Sheets[firstSheetName], {
     defval: "",
   });
-  const students = normalizeStudentRows(rows);
+  const students = normalizeStudentRows(rows, importClassName);
 
   if (students.length === 0) {
     throw Object.assign(new Error("Excel file has no valid student rows."), {
@@ -103,6 +104,7 @@ export async function importStudents(students) {
   const connection = await pool.getConnection();
   let inserted = 0;
   let updated = 0;
+  const classNames = new Set(students.map((student) => student.className));
 
   try {
     await connection.beginTransaction();
@@ -130,6 +132,19 @@ export async function importStudents(students) {
       }
     }
 
+    await connection.execute(`
+      INSERT INTO classes (class_code, class_name, teacher_id)
+      SELECT DISTINCT
+        s.class_name,
+        s.class_name,
+        (SELECT id FROM users WHERE username = 'teacher' LIMIT 1)
+      FROM students s
+      WHERE s.class_name <> ''
+      ON DUPLICATE KEY UPDATE
+        class_name = classes.class_name,
+        teacher_id = COALESCE(classes.teacher_id, VALUES(teacher_id))
+    `);
+
     await connection.commit();
   } catch (error) {
     await connection.rollback();
@@ -142,5 +157,6 @@ export async function importStudents(students) {
     imported: students.length,
     inserted,
     updated,
+    className: classNames.size === 1 ? [...classNames][0] : null,
   };
 }

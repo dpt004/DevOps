@@ -7,12 +7,18 @@ import {
   parseStudentWorkbook,
 } from "../services/excelStudentImport.js";
 import {
+  createClass,
   createStudent,
+  deleteClass,
   deleteStudent,
   getAttendanceByDate,
   getAttendanceStats,
+  listClasses,
   listStudents,
+  lockAttendance,
   saveAttendance,
+  statsToCsv,
+  updateClass,
   updateStudent,
 } from "../services/attendanceService.js";
 import { login } from "../services/authService.js";
@@ -57,7 +63,39 @@ apiRouter.get("/auth/me", requireAuth, (req, res) => {
 
 apiRouter.get("/students", requireAuth, async (req, res, next) => {
   try {
-    res.json({ data: await listStudents() });
+    res.json({ data: await listStudents(req.query, req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/classes", requireAuth, async (req, res, next) => {
+  try {
+    res.json({ data: await listClasses(req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/classes", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.status(201).json({ data: await createClass(req.body) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.put("/classes/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await updateClass(req.params.id, req.body) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/classes/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await deleteClass(req.params.id) });
   } catch (error) {
     next(error);
   }
@@ -91,7 +129,7 @@ apiRouter.delete("/students/:id", requireAuth, requireRole("admin"), async (req,
 apiRouter.post(
   "/students/import",
   requireAuth,
-  requireRole("admin"),
+  requireRole("admin", "teacher"),
   upload.single("file"),
   async (req, res, next) => {
     try {
@@ -101,7 +139,14 @@ apiRouter.post(
         });
       }
 
-      const students = parseStudentWorkbook(req.file.buffer);
+      const importClassName = String(req.body.className || "").trim();
+      if (!importClassName) {
+        throw Object.assign(new Error("className is required for import."), {
+          statusCode: 400,
+        });
+      }
+
+      const students = parseStudentWorkbook(req.file.buffer, importClassName);
       const summary = await importStudents(students);
       res.status(201).json({ data: summary });
     } catch (error) {
@@ -112,8 +157,7 @@ apiRouter.post(
 
 apiRouter.get("/attendance", requireAuth, async (req, res, next) => {
   try {
-    const rows = await getAttendanceByDate(req.query.date);
-    res.json({ data: rows });
+    res.json({ data: await getAttendanceByDate(req.query, req.user) });
   } catch (error) {
     next(error);
   }
@@ -121,8 +165,24 @@ apiRouter.get("/attendance", requireAuth, async (req, res, next) => {
 
 apiRouter.post("/attendance", requireAuth, requireRole("admin", "teacher"), async (req, res, next) => {
   try {
-    const rows = await saveAttendance(req.body.date, req.body.records);
-    res.json({ data: rows });
+    res.json({
+      data: await saveAttendance(
+        req.body.date,
+        req.body.className,
+        req.body.records,
+        req.user,
+      ),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/attendance/lock", requireAuth, requireRole("admin", "teacher"), async (req, res, next) => {
+  try {
+    res.json({
+      data: await lockAttendance(req.body.date, req.body.className, req.user),
+    });
   } catch (error) {
     next(error);
   }
@@ -130,8 +190,21 @@ apiRouter.post("/attendance", requireAuth, requireRole("admin", "teacher"), asyn
 
 apiRouter.get("/stats", requireAuth, async (req, res, next) => {
   try {
-    const rows = await getAttendanceStats(req.query.from, req.query.to);
-    res.json({ data: rows });
+    res.json({ data: await getAttendanceStats(req.query, req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/reports/attendance.csv", requireAuth, async (req, res, next) => {
+  try {
+    const rows = await getAttendanceStats(req.query, req.user);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=\"attendance-report.csv\"",
+    );
+    res.send(statsToCsv(rows));
   } catch (error) {
     next(error);
   }
