@@ -1,26 +1,58 @@
 # Student Attendance System
 
-Hệ thống quản lý điểm danh sinh viên theo ngày. Dự án được thiết kế theo yêu cầu DevOps: có frontend React, backend API, MySQL database, Docker Compose, GitHub Actions CI và tài liệu deploy/debug.
+Hệ thống quản lý điểm danh sinh viên theo ngày, xây dựng theo yêu cầu DevOps: React frontend, Express backend API, MySQL database, Docker Compose, GitHub Actions CI, cấu hình bằng ENV và tài liệu deploy/debug.
 
-## Chức năng
+## Chức Năng
 
-- Import danh sách sinh viên từ file Excel (`.xlsx`, `.xls`, `.csv`)
-- Quản lý danh sách sinh viên
-- Đăng nhập và phân quyền `admin` / `teacher`
-- Điểm danh sinh viên theo ngày với 2 lựa chọn tích một trong hai: `Có mặt` hoặc `Vắng`
-- Xem lại danh sách điểm danh theo ngày
-- Thống kê số buổi có mặt theo từng sinh viên
+- Đăng nhập và phân quyền `admin`, `teacher`, `student`.
+- Admin quản lý sinh viên và danh mục lớp.
+- Giảng viên chọn lớp, import file danh sách sinh viên cho lớp đang chọn và điểm danh.
+- Sinh viên xem lịch sử điểm danh cá nhân.
+- Điểm danh theo ngày với 4 trạng thái: `Có mặt`, `Vắng`, `Đi trễ`, `Có phép`.
+- Mỗi sinh viên chỉ có một bản ghi điểm danh trong một ngày; lưu lại sẽ cập nhật.
+- Xác nhận và khóa điểm danh theo lớp/ngày để tránh sửa tùy tiện sau khi chốt.
+- Lọc danh sách điểm danh theo ngày, lớp, MSSV, trạng thái.
+- Thống kê chuyên cần: tổng buổi, có mặt, vắng, đi trễ, có phép, tỷ lệ chuyên cần.
+- Xuất báo cáo CSV.
 
-## Module chức năng
+## Tài Khoản Demo
 
-- Authentication: đăng nhập, đăng xuất, phân quyền theo vai trò.
-- Student Management: thêm/sửa/xóa sinh viên, import Excel, quản lý danh sách sinh viên và lớp.
-- Attendance: điểm danh theo ngày bằng hai ô tích loại trừ nhau, cập nhật điểm danh, xem lịch sử theo ngày.
-- Report: thống kê chuyên cần và nền tảng để mở rộng xuất Excel/PDF.
+| Username | Password | Role |
+| --- | --- | --- |
+| admin | Admin@123 | Quản trị hệ thống |
+| teacher | Teacher@123 | Giảng viên |
+| student | Student@123 | Sinh viên demo |
 
-Phiên bản hiện tại tập trung vào mức tối thiểu của đồ án sinh viên: đăng nhập, phân quyền, CRUD sinh viên, import Excel, điểm danh theo ngày, xem danh sách điểm danh, thống kê số buổi có mặt, Docker, MySQL và CI.
+## Cấu Trúc Thư Mục
 
-## Kiến trúc
+```text
+.
+├── .github/workflows/ci.yml
+├── backend/
+│   ├── src/
+│   ├── tests/
+│   ├── Dockerfile
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── constants/
+│   │   ├── features/
+│   │   └── utils/
+│   ├── Dockerfile
+│   └── package.json
+├── docs/
+│   └── import-samples/
+├── scripts/
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+Các thư mục generated như `node_modules`, `dist`, `__pycache__` không nằm trong source và đã được đưa vào `.gitignore`.
+
+## Kiến Trúc
 
 ```mermaid
 flowchart LR
@@ -29,37 +61,23 @@ flowchart LR
   B --> D["MySQL Database"]
 ```
 
-Services trong Docker Compose:
+Docker Compose chạy 3 service:
 
-- `frontend`: React build multi-stage, chạy bằng Nginx
-- `backend`: Express API
-- `mysql`: MySQL 8.4, lưu bảng `students` và `attendance`
+- `frontend`: React build multi-stage, serve bằng Nginx.
+- `backend`: Express API.
+- `mysql`: MySQL 8.4, lưu dữ liệu hệ thống.
 
-## Bảng dữ liệu
+## Database
 
-`students`
+- `users`: tài khoản đăng nhập và vai trò.
+- `classes`: danh mục lớp.
+- `students`: thông tin sinh viên, gắn với lớp qua `class_name`.
+- `attendance`: dữ liệu điểm danh, có `marked_by_user_id`.
+- `attendance_locks`: trạng thái khóa điểm danh theo lớp/ngày.
 
-| Field | Meaning |
-| --- | --- |
-| id | Mã sinh viên nội bộ |
-| student_code | Mã số sinh viên |
-| full_name | Họ tên sinh viên |
-| class_name | Lớp |
-| created_at | Ngày tạo |
+## Chạy Bằng Docker
 
-`attendance`
-
-| Field | Meaning |
-| --- | --- |
-| id | Mã điểm danh |
-| student_id | Mã sinh viên |
-| attendance_date | Ngày điểm danh |
-| status | `present` hoặc `absent` |
-| created_at | Thời gian ghi nhận |
-
-## Chạy bằng Docker
-
-Tạo file `.env` từ mẫu nếu cần đổi cấu hình:
+Tạo ENV từ file mẫu:
 
 ```powershell
 Copy-Item .env.example .env
@@ -77,13 +95,6 @@ URL demo:
 - Backend health: http://localhost:4000/api/health
 - MySQL host port: `3307`
 
-Tài khoản demo:
-
-| Username | Password | Role |
-| --- | --- | --- |
-| admin | Admin@123 | Quản trị, được thêm/sửa/xóa/import sinh viên |
-| teacher | Teacher@123 | Giảng viên, được điểm danh và xem báo cáo |
-
 Kiểm tra container và log:
 
 ```powershell
@@ -98,55 +109,54 @@ Smoke test:
 powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
 ```
 
-Tắt hệ thống:
+## Import Danh Sách Theo Lớp
 
-```powershell
-docker compose down
-```
+File mẫu nằm trong `docs/import-samples/`.
 
-## Excel Import
+Luồng chuẩn:
 
-Sheet đầu tiên cần có các cột:
+1. Admin tạo lớp trong tab `Lớp` nếu lớp chưa tồn tại.
+2. Admin hoặc giảng viên chọn lớp.
+3. Import file Excel/CSV danh sách sinh viên.
+4. Backend gán toàn bộ sinh viên trong file vào lớp đang chọn, không cộng dồn nhầm sang lớp khác.
 
-| MSSV | Họ tên | Lớp |
-| --- | --- | --- |
-| SV001 | Nguyen Van An | D21CQCN01 |
-
-Backend cũng chấp nhận các tên cột gần tương đương như `student_code`, `full_name`, `class_name`, `Mã sinh viên`, `Ho ten`, `Lop`.
-
-Các file mẫu theo lớp nằm trong `docs/import-samples/`.
+Các cột hỗ trợ: `MSSV`, `Họ tên`, `Lớp`. Khi import từ UI, lớp trong file có thể bị ghi đè bằng lớp đang chọn để bảo đảm mỗi file thuộc đúng một lớp.
 
 ## API Chính
 
 - `GET /api/health`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
-- `GET /api/students`
+- `GET /api/classes`
+- `POST /api/classes`
+- `PUT /api/classes/:id`
+- `DELETE /api/classes/:id`
+- `GET /api/students?className=D21CQCN01`
 - `POST /api/students`
 - `PUT /api/students/:id`
 - `DELETE /api/students/:id`
 - `POST /api/students/import`
-- `GET /api/attendance?date=YYYY-MM-DD`
+- `GET /api/attendance?date=YYYY-MM-DD&className=D21CQCN01`
 - `POST /api/attendance`
-- `GET /api/stats?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `POST /api/attendance/lock`
+- `GET /api/stats?from=YYYY-MM-DD&to=YYYY-MM-DD&className=D21CQCN01`
+- `GET /api/reports/attendance.csv`
 
 ## CI/CD
 
 GitHub Actions chạy khi `push` hoặc `pull_request` vào `main` và `dev`:
 
-- Backend: `npm install`, lint, test, build
-- Frontend: `npm install`, lint, test, build
-- Docker: `docker compose config`, `docker compose build`
+- Backend: install dependency, lint, test, build.
+- Frontend: install dependency, lint, test, build.
+- Docker: `docker compose config`, `docker compose build`.
 
 ## Branching
 
-Quy ước bắt buộc:
+- `main`: production-ready.
+- `dev`: tích hợp tính năng trước khi merge main.
+- `feature/*`: phát triển từng chức năng.
 
-- `main`: production-ready
-- `dev`: tích hợp tính năng trước khi merge main
-- `feature/*`: phát triển từng chức năng
-
-## Tài liệu DevOps
+## Tài Liệu
 
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
