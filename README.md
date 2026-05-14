@@ -111,8 +111,8 @@ Backend cũng chấp nhận các tên cột gần tương đương như `student
 
 GitHub Actions chạy khi `push` hoặc `pull_request` vào `main` và `dev`:
 
-- Backend: `npm ci`, lint, test, build
-- Frontend: `npm ci`, lint, test, build
+- Backend: `npm install`, lint, test, build
+- Frontend: `npm install`, lint, test, build
 - Docker: `docker compose config`, `docker compose build`
 
 ## Branching
