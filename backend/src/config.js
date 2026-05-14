@@ -17,6 +17,7 @@ export const config = {
     tokenTtlSeconds: optionalInt(process.env.AUTH_TOKEN_TTL_SECONDS, 28800),
     adminPassword: process.env.SEED_ADMIN_PASSWORD || "Admin@123",
     teacherPassword: process.env.SEED_TEACHER_PASSWORD || "Teacher@123",
+    studentPassword: process.env.SEED_STUDENT_PASSWORD || "Student@123",
   },
   database: {
     host: process.env.DB_HOST || "localhost",

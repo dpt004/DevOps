@@ -23,6 +23,7 @@ function publicUser(row) {
     username: row.username,
     fullName: row.full_name,
     role: row.role,
+    studentId: row.student_id,
   };
 }
 
@@ -31,6 +32,7 @@ export function createToken(user) {
     id: user.id,
     username: user.username,
     role: user.role,
+    studentId: user.studentId,
     exp: Math.floor(Date.now() / 1000) + config.auth.tokenTtlSeconds,
   };
   const encoded = base64url(payload);
@@ -69,7 +71,7 @@ export async function login(usernameValue, passwordValue) {
 
   const rows = await query(
     `
-      SELECT id, username, full_name, role, password_hash
+      SELECT id, username, full_name, role, student_id, password_hash
       FROM users
       WHERE username = ?
       LIMIT 1

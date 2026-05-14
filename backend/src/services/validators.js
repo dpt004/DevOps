@@ -1,4 +1,4 @@
-export const attendanceStatuses = ["present", "absent"];
+export const attendanceStatuses = ["present", "absent", "late", "excused"];
 
 export function normalizeDate(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {

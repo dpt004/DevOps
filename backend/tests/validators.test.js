@@ -18,6 +18,8 @@ test("normalizeDate rejects invalid dates", () => {
 test("normalizeStatus only accepts supported attendance states", () => {
   assert.equal(normalizeStatus("present"), "present");
   assert.equal(normalizeStatus("absent"), "absent");
+  assert.equal(normalizeStatus("late"), "late");
+  assert.equal(normalizeStatus("excused"), "excused");
   assert.throws(() => normalizeStatus("unknown"), /Status must be one of/);
 });
 
