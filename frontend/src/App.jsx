@@ -1,101 +1,192 @@
 import { useEffect, useMemo, useState } from "react";
+import { LoginPanel } from "./components/LoginPanel.jsx";
+import { roleLabels } from "./constants/attendance.js";
+import { AttendancePanel } from "./features/attendance/AttendancePanel.jsx";
+import { ClassesPanel } from "./features/classes/ClassesPanel.jsx";
+import { StatsPanel } from "./features/reports/StatsPanel.jsx";
+import { StudentsPanel } from "./features/students/StudentsPanel.jsx";
 import {
   clearStoredSession,
+  createClass,
   createStudent,
+  deleteClass,
   deleteStudent,
+  downloadAttendanceReport,
   getAttendance,
+  getClasses,
   getHealth,
   getStats,
   getStudents,
   getStoredSession,
   importStudents,
+  lockAttendance,
   login,
   logout,
   saveAttendance,
   setStoredSession,
+  updateClass,
   updateStudent,
 } from "./api/client.js";
 import { startOfMonthISO, todayISO } from "./utils/date.js";
 
-function EmptyState({ children }) {
-  return <div className="empty">{children}</div>;
+function newStudentForm(className = "") {
+  return {
+    id: null,
+    studentCode: "",
+    fullName: "",
+    className,
+  };
+}
+
+function newClassForm() {
+  return {
+    id: null,
+    classCode: "",
+    className: "",
+  };
 }
 
 export function App() {
   const [session, setSession] = useState(getStoredSession());
   const [activeTab, setActiveTab] = useState("attendance");
   const [health, setHealth] = useState(null);
+  const [classes, setClasses] = useState([]);
+  const [selectedClass, setSelectedClass] = useState("");
   const [students, setStudents] = useState([]);
   const [attendanceDate, setAttendanceDate] = useState(todayISO());
   const [attendanceRows, setAttendanceRows] = useState([]);
+  const [attendanceLock, setAttendanceLock] = useState(null);
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState("");
+  const [attendanceStudentFilter, setAttendanceStudentFilter] = useState("");
   const [statsFrom, setStatsFrom] = useState(startOfMonthISO());
   const [statsTo, setStatsTo] = useState(todayISO());
+  const [statsStudentFilter, setStatsStudentFilter] = useState("");
   const [stats, setStats] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [studentForm, setStudentForm] = useState({
-    id: null,
-    studentCode: "",
-    fullName: "",
-    className: "",
-  });
+  const [studentForm, setStudentForm] = useState(newStudentForm());
+  const [classForm, setClassForm] = useState(newClassForm());
   const [selectedFile, setSelectedFile] = useState(null);
   const [loginForm, setLoginForm] = useState({
     username: "admin",
     password: "Admin@123",
   });
 
-  const isAdmin = session?.user?.role === "admin";
-  const studentCount = students.length;
+  const role = session?.user?.role;
+  const isAdmin = role === "admin";
+  const isStudent = role === "student";
+  const canMarkAttendance = role === "admin" || role === "teacher";
+  const canImportStudents = role === "admin" || role === "teacher";
   const presentToday = useMemo(
     () =>
       attendanceRows.filter((row) => row.attendance?.status === "present")
         .length,
     [attendanceRows],
   );
+  const tabs = [
+    ["attendance", isStudent ? "Lịch sử" : "Điểm danh"],
+    ["students", "Sinh viên"],
+    isAdmin ? ["classes", "Lớp"] : null,
+    ["stats", "Báo cáo"],
+  ].filter(Boolean);
 
-  async function loadBaseData() {
-    const [healthData, studentData] = await Promise.all([
+  function handleApiError(err) {
+    if (err.status === 401) {
+      clearStoredSession();
+      setSession(null);
+    }
+    setError(err.message);
+  }
+
+  async function runTask(callback) {
+    try {
+      setError("");
+      await callback();
+    } catch (err) {
+      handleApiError(err);
+    }
+  }
+
+  async function loadBaseData(className = selectedClass) {
+    const [healthData, classData] = await Promise.all([
       getHealth(),
-      getStudents(),
+      getClasses(),
     ]);
+    const nextClass = className || classData[0]?.classCode || "";
+    const studentData = await getStudents(
+      nextClass ? { className: nextClass } : {},
+    );
+
     setHealth(healthData);
+    setClasses(classData);
+    setSelectedClass(nextClass);
     setStudents(studentData);
+    setStudentForm((current) =>
+      current.id ? current : { ...current, className: nextClass },
+    );
+
+    return nextClass;
   }
 
-  async function loadAttendance(date = attendanceDate) {
-    const rows = await getAttendance(date);
-    setAttendanceRows(rows);
+  async function loadAttendance(
+    date = attendanceDate,
+    className = selectedClass,
+    filters = {},
+  ) {
+    if (!date || !className) {
+      setAttendanceRows([]);
+      setAttendanceLock(null);
+      return;
+    }
+
+    const result = await getAttendance({
+      date,
+      className,
+      status: filters.status ?? attendanceStatusFilter,
+      studentCode: filters.studentCode ?? attendanceStudentFilter,
+    });
+    setAttendanceRows(result.rows || []);
+    setAttendanceLock(result.lock || null);
   }
 
-  async function loadStats() {
-    const rows = await getStats(statsFrom, statsTo);
+  async function loadStats(className = selectedClass, studentCode = statsStudentFilter) {
+    if (!statsFrom || !statsTo) {
+      return;
+    }
+
+    const rows = await getStats({
+      from: statsFrom,
+      to: statsTo,
+      className,
+      studentCode: isStudent ? "" : studentCode,
+    });
     setStats(rows);
   }
 
   useEffect(() => {
     if (session) {
-      loadBaseData()
-        .then(() => loadAttendance(attendanceDate))
-        .then(() => loadStats())
-        .catch((err) => {
-          if (err.status === 401) {
-            clearStoredSession();
-            setSession(null);
-          }
-          setError(err.message);
-        });
+      runTask(async () => {
+        const className = await loadBaseData();
+        await loadAttendance(attendanceDate, className);
+        await loadStats(className);
+      });
     }
   }, [session]);
 
-  async function refreshAll() {
-    setError("");
-    await loadBaseData();
-    await loadAttendance(attendanceDate);
-    await loadStats();
+  async function refreshAll(className = selectedClass) {
+    const nextClass = await loadBaseData(className);
+    await loadAttendance(attendanceDate, nextClass);
+    await loadStats(nextClass);
   }
 
-  function updateAttendance(studentId, field, value) {
+  function recordsFromRows() {
+    return attendanceRows.map((row) => ({
+      studentId: row.student.id,
+      status: row.attendance?.status || "present",
+    }));
+  }
+
+  function updateAttendance(studentId, status) {
     setAttendanceRows((rows) =>
       rows.map((row) =>
         row.student.id === studentId
@@ -104,8 +195,7 @@ export function App() {
               attendance: {
                 id: row.attendance?.id,
                 date: attendanceDate,
-                status:
-                  field === "status" ? value : row.attendance?.status || "present",
+                status,
               },
             }
           : row,
@@ -113,49 +203,89 @@ export function App() {
     );
   }
 
+  async function handleSelectedClassChange(value) {
+    setSelectedClass(value);
+    setStudentForm((current) =>
+      current.id ? current : { ...current, className: value },
+    );
+    await runTask(async () => {
+      const studentData = await getStudents(value ? { className: value } : {});
+      setStudents(studentData);
+      await loadAttendance(attendanceDate, value);
+      await loadStats(value);
+    });
+  }
+
+  async function handleDateChange(value) {
+    setAttendanceDate(value);
+    await runTask(async () => {
+      await loadAttendance(value, selectedClass);
+    });
+  }
+
   async function handleSaveAttendance(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
+    await runTask(async () => {
+      setMessage("");
+      const result = await saveAttendance(
+        attendanceDate,
+        selectedClass,
+        recordsFromRows(),
+      );
+      setAttendanceRows(result.rows || []);
+      setAttendanceLock(result.lock || null);
+      await loadStats(selectedClass);
+      setMessage("Đã lưu điểm danh.");
+    });
+  }
 
-    const records = attendanceRows.map((row) => ({
-      studentId: row.student.id,
-      status: row.attendance?.status || "present",
-    }));
+  async function handleLockAttendance() {
+    await runTask(async () => {
+      setMessage("");
+      await saveAttendance(attendanceDate, selectedClass, recordsFromRows());
+      const lock = await lockAttendance(attendanceDate, selectedClass);
+      setAttendanceLock(lock);
+      await loadAttendance(attendanceDate, selectedClass);
+      await loadStats(selectedClass);
+      setMessage("Đã lưu và khóa điểm danh cho lớp đã chọn.");
+    });
+  }
 
-    await saveAttendance(attendanceDate, records);
-    await loadAttendance(attendanceDate);
-    await loadStats();
-    setMessage("Đã lưu điểm danh.");
+  async function handleAttendanceFilter(event) {
+    event.preventDefault();
+    await runTask(async () => {
+      await loadAttendance(attendanceDate, selectedClass);
+    });
   }
 
   async function handleCreateStudent(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
+    await runTask(async () => {
+      setMessage("");
+      const payload = {
+        ...studentForm,
+        className: studentForm.className || selectedClass,
+      };
 
-    if (studentForm.id) {
-      await updateStudent(studentForm);
-    } else {
-      await createStudent(studentForm);
-    }
+      if (payload.id) {
+        await updateStudent(payload);
+      } else {
+        await createStudent(payload);
+      }
 
-    setStudentForm({
-      id: null,
-      studentCode: "",
-      fullName: "",
-      className: "",
+      setStudentForm(newStudentForm(selectedClass));
+      await refreshAll(payload.className);
+      setMessage(payload.id ? "Đã cập nhật sinh viên." : "Đã thêm sinh viên.");
     });
-    await refreshAll();
-    setMessage(studentForm.id ? "Đã cập nhật sinh viên." : "Đã thêm sinh viên.");
   }
 
   async function handleDeleteStudent(studentId) {
-    setError("");
-    setMessage("");
-    await deleteStudent(studentId);
-    await refreshAll();
-    setMessage("Đã xóa sinh viên.");
+    await runTask(async () => {
+      setMessage("");
+      await deleteStudent(studentId);
+      await refreshAll();
+      setMessage("Đã xóa sinh viên.");
+    });
   }
 
   function editStudent(student) {
@@ -169,36 +299,77 @@ export function App() {
 
   async function handleImportStudents(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
+    await runTask(async () => {
+      setMessage("");
 
-    if (!selectedFile) {
-      setError("Chọn file Excel trước khi import.");
-      return;
-    }
+      if (!selectedClass) {
+        setError("Chọn lớp trước khi import danh sách sinh viên.");
+        return;
+      }
 
-    const result = await importStudents(selectedFile);
-    setSelectedFile(null);
-    await refreshAll();
-    setMessage(
-      `Đã import ${result.imported} sinh viên (${result.inserted} mới, ${result.updated} cập nhật).`,
-    );
+      if (!selectedFile) {
+        setError("Chọn file Excel hoặc CSV trước khi import.");
+        return;
+      }
+
+      const result = await importStudents(selectedFile, selectedClass);
+      setSelectedFile(null);
+      await refreshAll(result.className || selectedClass);
+      setMessage(
+        `Đã import ${result.imported} sinh viên vào lớp ${selectedClass} (${result.inserted} mới, ${result.updated} cập nhật).`,
+      );
+    });
   }
 
-  async function handleDateChange(value) {
-    setAttendanceDate(value);
-    setError("");
-    await loadAttendance(value);
+  async function handleClassSubmit(event) {
+    event.preventDefault();
+    await runTask(async () => {
+      setMessage("");
+      const result = classForm.id
+        ? await updateClass(classForm)
+        : await createClass(classForm);
+      setClassForm(newClassForm());
+      await refreshAll(result.classCode);
+      setMessage(classForm.id ? "Đã cập nhật lớp." : "Đã thêm lớp.");
+    });
+  }
+
+  async function handleDeleteClass(classId) {
+    await runTask(async () => {
+      setMessage("");
+      await deleteClass(classId);
+      await refreshAll("");
+      setMessage("Đã xóa lớp.");
+    });
+  }
+
+  async function handleStatsFilter(event) {
+    event.preventDefault();
+    await runTask(async () => {
+      await loadStats(selectedClass);
+    });
+  }
+
+  async function handleDownloadReport() {
+    await runTask(async () => {
+      await downloadAttendanceReport({
+        from: statsFrom,
+        to: statsTo,
+        className: selectedClass,
+        studentCode: isStudent ? "" : statsStudentFilter,
+      });
+      setMessage("Đã xuất báo cáo CSV.");
+    });
   }
 
   async function handleLogin(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
-
-    const loginSession = await login(loginForm.username, loginForm.password);
-    setStoredSession(loginSession);
-    setSession(loginSession);
+    await runTask(async () => {
+      setMessage("");
+      const loginSession = await login(loginForm.username, loginForm.password);
+      setStoredSession(loginSession);
+      setSession(loginSession);
+    });
   }
 
   async function handleLogout() {
@@ -210,8 +381,11 @@ export function App() {
     clearStoredSession();
     setSession(null);
     setHealth(null);
+    setClasses([]);
+    setSelectedClass("");
     setStudents([]);
     setAttendanceRows([]);
+    setAttendanceLock(null);
     setStats([]);
     setMessage("");
     setError("");
@@ -219,36 +393,12 @@ export function App() {
 
   if (!session) {
     return (
-      <main className="login-shell">
-        <form className="login-panel" onSubmit={handleLogin}>
-          <p className="eyebrow">Student Attendance System</p>
-          <h1>Đăng nhập</h1>
-          <p className="hint">Tài khoản demo: admin/Admin@123 hoặc teacher/Teacher@123.</p>
-          {error && <section className="notice error">{error}</section>}
-          <label>
-            Tên đăng nhập
-            <input
-              autoComplete="username"
-              value={loginForm.username}
-              onChange={(event) =>
-                setLoginForm({ ...loginForm, username: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Mật khẩu
-            <input
-              autoComplete="current-password"
-              type="password"
-              value={loginForm.password}
-              onChange={(event) =>
-                setLoginForm({ ...loginForm, password: event.target.value })
-              }
-            />
-          </label>
-          <button type="submit">Đăng nhập</button>
-        </form>
-      </main>
+      <LoginPanel
+        error={error}
+        loginForm={loginForm}
+        onChange={setLoginForm}
+        onSubmit={handleLogin}
+      />
     );
   }
 
@@ -265,7 +415,7 @@ export function App() {
         </div>
         <div className="user-box">
           <strong>{session.user.fullName}</strong>
-          <span>{session.user.role === "admin" ? "Quản trị" : "Giảng viên"}</span>
+          <span>{roleLabels[role] || role}</span>
           <button type="button" onClick={handleLogout}>
             Đăng xuất
           </button>
@@ -280,25 +430,21 @@ export function App() {
 
       <section className="summary-grid">
         <article>
-          <span>Sinh viên</span>
-          <strong>{studentCount}</strong>
+          <span>Lớp đang chọn</span>
+          <strong>{selectedClass || "-"}</strong>
+        </article>
+        <article>
+          <span>Sinh viên trong lớp</span>
+          <strong>{students.length}</strong>
         </article>
         <article>
           <span>Có mặt ngày chọn</span>
           <strong>{presentToday}</strong>
         </article>
-        <article>
-          <span>Database</span>
-          <strong>MySQL</strong>
-        </article>
       </section>
 
       <nav className="tabs" aria-label="Attendance views">
-        {[
-          ["attendance", "Điểm danh"],
-          ["students", "Sinh viên"],
-          ["stats", "Thống kê"],
-        ].map(([key, label]) => (
+        {tabs.map(([key, label]) => (
           <button
             className={activeTab === key ? "active" : ""}
             key={key}
@@ -311,240 +457,71 @@ export function App() {
       </nav>
 
       {activeTab === "attendance" && (
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h2>Điểm danh theo ngày</h2>
-              <p>{attendanceRows.length} sinh viên trong danh sách.</p>
-            </div>
-            <label>
-              Ngày
-              <input
-                type="date"
-                value={attendanceDate}
-                onChange={(event) => handleDateChange(event.target.value)}
-              />
-            </label>
-          </div>
-
-          {attendanceRows.length === 0 ? (
-            <EmptyState>Import hoặc thêm sinh viên trước khi điểm danh.</EmptyState>
-          ) : (
-            <form onSubmit={handleSaveAttendance}>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>MSSV</th>
-                      <th>Họ tên</th>
-                      <th>Lớp</th>
-                      <th>Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendanceRows.map((row) => (
-                      <tr key={row.student.id}>
-                        <td>{row.student.studentCode}</td>
-                        <td>{row.student.fullName}</td>
-                        <td>{row.student.className}</td>
-                        <td>
-                          <div className="attendance-options">
-                            {[
-                              ["present", "Có mặt"],
-                              ["absent", "Vắng"],
-                            ].map(([status, label]) => (
-                              <label className="attendance-choice" key={status}>
-                                <input
-                                  checked={
-                                    (row.attendance?.status || "present") === status
-                                  }
-                                  name={`attendance-${row.student.id}`}
-                                  onChange={() =>
-                                    updateAttendance(row.student.id, "status", status)
-                                  }
-                                  type="radio"
-                                />
-                                <span aria-hidden="true" className="checkmark" />
-                                <strong>{label}</strong>
-                              </label>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="actions">
-                <button type="submit">Lưu điểm danh</button>
-              </div>
-            </form>
-          )}
-        </section>
+        <AttendancePanel
+          attendanceDate={attendanceDate}
+          attendanceLock={attendanceLock}
+          attendanceRows={attendanceRows}
+          attendanceStatusFilter={attendanceStatusFilter}
+          attendanceStudentFilter={attendanceStudentFilter}
+          canMarkAttendance={canMarkAttendance}
+          classes={classes}
+          isStudent={isStudent}
+          onDateChange={handleDateChange}
+          onFilter={handleAttendanceFilter}
+          onLock={handleLockAttendance}
+          onSave={handleSaveAttendance}
+          onSelectedClassChange={handleSelectedClassChange}
+          onStatusChange={updateAttendance}
+          selectedClass={selectedClass}
+          setAttendanceStatusFilter={setAttendanceStatusFilter}
+          setAttendanceStudentFilter={setAttendanceStudentFilter}
+        />
       )}
 
       {activeTab === "students" && (
-        <section className="two-column">
-          {isAdmin && (
-            <form className="panel" onSubmit={handleImportStudents}>
-              <h2>Import Excel</h2>
-              <p className="hint">Cột hỗ trợ: MSSV, Họ tên, Lớp.</p>
-              <input
-                accept=".xlsx,.xls,.csv"
-                type="file"
-                onChange={(event) => setSelectedFile(event.target.files[0])}
-              />
-              <div className="actions">
-                <button type="submit">Import danh sách</button>
-              </div>
-            </form>
-          )}
+        <StudentsPanel
+          canImportStudents={canImportStudents}
+          classes={classes}
+          isAdmin={isAdmin}
+          onCreateStudent={handleCreateStudent}
+          onDeleteStudent={handleDeleteStudent}
+          onEditStudent={editStudent}
+          onImportStudents={handleImportStudents}
+          onSelectedClassChange={handleSelectedClassChange}
+          selectedClass={selectedClass}
+          setSelectedFile={setSelectedFile}
+          setStudentForm={setStudentForm}
+          studentForm={studentForm}
+          students={students}
+        />
+      )}
 
-          {isAdmin && (
-          <form className="panel" onSubmit={handleCreateStudent}>
-            <h2>{studentForm.id ? "Sửa sinh viên" : "Thêm sinh viên"}</h2>
-            <input
-              placeholder="MSSV"
-              value={studentForm.studentCode}
-              onChange={(event) =>
-                setStudentForm({ ...studentForm, studentCode: event.target.value })
-              }
-            />
-            <input
-              placeholder="Họ tên"
-              value={studentForm.fullName}
-              onChange={(event) =>
-                setStudentForm({ ...studentForm, fullName: event.target.value })
-              }
-            />
-            <input
-              placeholder="Lớp"
-              value={studentForm.className}
-              onChange={(event) =>
-                setStudentForm({ ...studentForm, className: event.target.value })
-              }
-            />
-            <div className="actions">
-              {studentForm.id && (
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    setStudentForm({
-                      id: null,
-                      studentCode: "",
-                      fullName: "",
-                      className: "",
-                    })
-                  }
-                  type="button"
-                >
-                  Hủy
-                </button>
-              )}
-              <button type="submit">{studentForm.id ? "Lưu sửa" : "Thêm"}</button>
-            </div>
-          </form>
-          )}
-
-          <section className="panel wide">
-            <h2>Danh sách sinh viên</h2>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>MSSV</th>
-                    <th>Họ tên</th>
-                    <th>Lớp</th>
-                    {isAdmin && <th>Thao tác</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map((student) => (
-                    <tr key={student.id}>
-                      <td>{student.studentCode}</td>
-                      <td>{student.fullName}</td>
-                      <td>{student.className}</td>
-                      {isAdmin && (
-                        <td>
-                          <div className="row-actions">
-                            <button
-                              className="secondary"
-                              onClick={() => editStudent(student)}
-                              type="button"
-                            >
-                              Sửa
-                            </button>
-                            <button
-                              className="danger"
-                              onClick={() => handleDeleteStudent(student.id)}
-                              type="button"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
+      {activeTab === "classes" && isAdmin && (
+        <ClassesPanel
+          classForm={classForm}
+          classes={classes}
+          onDeleteClass={handleDeleteClass}
+          onSubmit={handleClassSubmit}
+          setClassForm={setClassForm}
+        />
       )}
 
       {activeTab === "stats" && (
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h2>Thống kê số buổi</h2>
-              <p>Tổng hợp theo khoảng ngày.</p>
-            </div>
-            <div className="date-range">
-              <label>
-                Từ
-                <input
-                  type="date"
-                  value={statsFrom}
-                  onChange={(event) => setStatsFrom(event.target.value)}
-                />
-              </label>
-              <label>
-                Đến
-                <input
-                  type="date"
-                  value={statsTo}
-                  onChange={(event) => setStatsTo(event.target.value)}
-                />
-              </label>
-              <button type="button" onClick={loadStats}>
-                Xem
-              </button>
-            </div>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>MSSV</th>
-                  <th>Họ tên</th>
-                  <th>Lớp</th>
-                  <th>Số buổi có mặt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.map((row) => (
-                  <tr key={row.student.id}>
-                    <td>{row.student.studentCode}</td>
-                    <td>{row.student.fullName}</td>
-                    <td>{row.student.className}</td>
-                    <td>{row.presentCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <StatsPanel
+          classes={classes}
+          isStudent={isStudent}
+          onDownloadReport={handleDownloadReport}
+          onFilter={handleStatsFilter}
+          onSelectedClassChange={handleSelectedClassChange}
+          selectedClass={selectedClass}
+          setStatsFrom={setStatsFrom}
+          setStatsStudentFilter={setStatsStudentFilter}
+          setStatsTo={setStatsTo}
+          stats={stats}
+          statsFrom={statsFrom}
+          statsStudentFilter={statsStudentFilter}
+          statsTo={statsTo}
+        />
       )}
     </main>
   );
