@@ -2,10 +2,10 @@
 
 ## Layer Thinking
 
-- L4 Frontend: UI, browser console, failed fetch, wrong API URL
-- L3 Backend: API error, validation, upload parsing, CORS
-- L2 External: MySQL connection, schema, volume, storage
-- L1 Infrastructure: Docker, port conflict, network, deploy server
+- L4 Frontend: UI, browser console, failed fetch, wrong API URL.
+- L3 Backend: API error, validation, upload parsing, CORS, auth role.
+- L2 External: MySQL connection, schema, volume, import file.
+- L1 Infrastructure: Docker, port conflict, network, deploy server.
 
 ## Useful Commands
 
@@ -33,10 +33,18 @@ docker compose exec mysql mysql -uattendance -p attendance_db
 - Fix: Set `CORS_ORIGIN` to the deployed frontend URL.
 - Prevention: Treat frontend URL as environment config, not hardcoded code.
 
-## Incident 3: Invalid Excel Header
+## Incident 3: Wrong Class Import
 
-- Symptom: Import API returns `Excel rows must include student code, full name, and class name.`
+- Symptom: Students from one file appear in the wrong class or are mixed into another class.
 - Layer: L3 Backend.
-- Cause: Uploaded sheet does not contain required columns.
-- Fix: Rename columns to `MSSV`, `Họ tên`, `Lớp`.
-- Prevention: Share a template file with the class/admin team.
+- Cause: Import was not tied to the class selected by the teacher/admin.
+- Fix: Select the target class before import; backend uses `className` from the form and forces all imported rows into that class.
+- Prevention: Keep one file per class and verify the class filter after import.
+
+## Incident 4: Locked Attendance Cannot Be Edited
+
+- Symptom: Save attendance returns HTTP 423.
+- Layer: L3 Backend.
+- Cause: Attendance for that class/date was already confirmed and locked.
+- Fix: Use another date/class or unlock through a controlled admin workflow if that feature is added later.
+- Prevention: Review the list before pressing `Xác nhận và khóa`.

@@ -30,6 +30,7 @@ curl http://localhost:4000/api/health
 - Restrict public access to MySQL. Do not expose `3307` on the public internet.
 - Configure `CORS_ORIGIN` to the production frontend URL.
 - Keep `.env` outside Git.
+- Confirm the deployed frontend can call `/api/health`, login, load classes, and export the attendance CSV report.
 
 ## Redeploy
 
