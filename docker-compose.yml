@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.4
+    restart: unless-stopped
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_DATABASE: ${DB_NAME:-attendance_db}
@@ -25,6 +26,7 @@ services:
   backend:
     build:
       context: ./backend
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -60,11 +62,24 @@ services:
   frontend:
     build:
       context: ./frontend
+    restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DESIGN: pepa-linha-dark
 
 volumes:
   mysql_data:

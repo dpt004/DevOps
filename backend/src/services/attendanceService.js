@@ -45,6 +45,8 @@ function mapAttendance(row) {
           date: row.attendance_date,
           status: row.status,
           statusLabel: statusLabels[row.status] || row.status,
+          absenceReason: row.absence_reason || "",
+          isExcused: row.is_excused ? true : false,
           markedBy: row.marked_by_username
             ? {
                 id: row.marked_by_user_id,
@@ -308,10 +310,22 @@ export async function createStudent(payload) {
     [studentCode, fullName, className],
   );
 
+  const studentId = result.insertId;
+
+  // Auto-link matching user accounts
+  await query(
+    `
+      UPDATE users
+      SET student_id = ?
+      WHERE username = ? AND role = 'student'
+    `,
+    [studentId, studentCode]
+  );
+
   await syncClasses();
 
   return {
-    id: result.insertId,
+    id: studentId,
     studentCode,
     fullName,
     className,
@@ -432,6 +446,21 @@ export async function lockAttendance(dateValue, classNameValue, user) {
   return getAttendanceLock(date, className);
 }
 
+export async function unlockAttendance(dateValue, classNameValue) {
+  const date = normalizeDate(dateValue);
+  const className = requireClassName(classNameValue);
+
+  await query(
+    `
+      DELETE FROM attendance_locks
+      WHERE class_name = ? AND attendance_date = ?
+    `,
+    [className, date],
+  );
+
+  return null;
+}
+
 export async function getAttendanceByDate(filters = {}, user) {
   const date = normalizeDate(filters.date);
   const params = [date];
@@ -468,6 +497,8 @@ export async function getAttendanceByDate(filters = {}, user) {
         a.id AS attendance_id,
         DATE_FORMAT(a.attendance_date, '%Y-%m-%d') AS attendance_date,
         a.status,
+        a.absence_reason,
+        a.is_excused,
         a.marked_by_user_id,
         u.username AS marked_by_username,
         u.full_name AS marked_by_full_name
@@ -531,15 +562,19 @@ export async function saveAttendance(dateValue, classNameValue, recordsValue, us
             student_id,
             attendance_date,
             status,
-            marked_by_user_id
+            marked_by_user_id,
+            absence_reason,
+            is_excused
           )
-          VALUES (?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             status = VALUES(status),
             marked_by_user_id = VALUES(marked_by_user_id),
+            absence_reason = VALUES(absence_reason),
+            is_excused = VALUES(is_excused),
             updated_at = CURRENT_TIMESTAMP
         `,
-        [record.studentId, date, record.status, user.id],
+        [record.studentId, date, record.status, user.id, record.absenceReason, record.isExcused],
       );
     }
     await client.commit();
@@ -590,9 +625,9 @@ export async function getAttendanceStats(filters = {}, user) {
         s.class_name,
         COUNT(a.id) AS total_marked,
         SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_count,
-        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+        SUM(CASE WHEN a.status = 'absent' AND a.is_excused = FALSE THEN 1 ELSE 0 END) AS absent_count,
         SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) AS late_count,
-        SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) AS excused_count
+        SUM(CASE WHEN a.status = 'excused' OR (a.status = 'absent' AND a.is_excused = TRUE) THEN 1 ELSE 0 END) AS excused_count
       FROM students s
       LEFT JOIN attendance a
         ON a.student_id = s.id
@@ -655,4 +690,35 @@ export function statsToCsv(rows) {
   );
 
   return [header.join(","), ...lines].join("\n");
+}
+
+export async function getMarkedDatesForClass(className) {
+  const cn = requireClassName(className);
+  const rows = await query(
+    `
+      SELECT DISTINCT DATE_FORMAT(a.attendance_date, '%Y-%m-%d') AS date
+      FROM attendance a
+      JOIN students s ON a.student_id = s.id
+      WHERE s.class_name = ?
+      ORDER BY date ASC
+    `,
+    [cn]
+  );
+  return rows.map(r => r.date);
+}
+
+export async function getUnassignedStudentUsers() {
+  const rows = await query(
+    `
+      SELECT id, username, full_name
+      FROM users
+      WHERE role = 'student' AND student_id IS NULL
+      ORDER BY username ASC
+    `
+  );
+  return rows.map(r => ({
+    id: r.id,
+    studentCode: r.username,
+    fullName: r.full_name,
+  }));
 }

@@ -24,6 +24,7 @@ import {
   logout,
   saveAttendance,
   setStoredSession,
+  unlockAttendance,
   updateClass,
   updateStudent,
 } from "./api/client.js";
@@ -67,6 +68,7 @@ export function App() {
   const [studentForm, setStudentForm] = useState(newStudentForm());
   const [classForm, setClassForm] = useState(newClassForm());
   const [selectedFile, setSelectedFile] = useState(null);
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({
     username: "admin",
     password: "Admin@123",
@@ -173,6 +175,26 @@ export function App() {
     }
   }, [session]);
 
+  // Tự động tắt thông báo thành công sau 4 giây
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  // Tự động tắt thông báo lỗi sau 4 giây
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   async function refreshAll(className = selectedClass) {
     const nextClass = await loadBaseData(className);
     await loadAttendance(attendanceDate, nextClass);
@@ -183,19 +205,20 @@ export function App() {
     return attendanceRows.map((row) => ({
       studentId: row.student.id,
       status: row.attendance?.status || "present",
+      absenceReason: row.attendance?.absenceReason || "",
+      isExcused: Boolean(row.attendance?.isExcused),
     }));
   }
 
-  function updateAttendance(studentId, status) {
+  function updateAttendance(studentId, fields) {
     setAttendanceRows((rows) =>
       rows.map((row) =>
         row.student.id === studentId
           ? {
               ...row,
               attendance: {
-                id: row.attendance?.id,
-                date: attendanceDate,
-                status,
+                ...(row.attendance || { date: attendanceDate }),
+                ...fields,
               },
             }
           : row,
@@ -248,6 +271,22 @@ export function App() {
       await loadAttendance(attendanceDate, selectedClass);
       await loadStats(selectedClass);
       setMessage("Đã lưu và khóa điểm danh cho lớp đã chọn.");
+    });
+  }
+
+  function handleUnlockAttendance() {
+    setUnlockConfirmOpen(true);
+  }
+
+  async function confirmUnlockAttendance() {
+    setUnlockConfirmOpen(false);
+    await runTask(async () => {
+      setMessage("");
+      await unlockAttendance(attendanceDate, selectedClass);
+      setAttendanceLock(null);
+      await loadAttendance(attendanceDate, selectedClass);
+      await loadStats(selectedClass);
+      setMessage("Đã mở khóa điểm danh. Bạn có thể chỉnh sửa lại.");
     });
   }
 
@@ -398,131 +437,303 @@ export function App() {
         loginForm={loginForm}
         onChange={setLoginForm}
         onSubmit={handleLogin}
+        onRegisterSuccess={(loginSession) => {
+          setStoredSession(loginSession);
+          setSession(loginSession);
+        }}
       />
     );
   }
 
+  const tabIcons = {
+    attendance: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+        <path d="M9 14h6" />
+        <path d="M9 18h6" />
+        <path d="M9 10h6" />
+      </svg>
+    ),
+    students: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    classes: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        <path d="M9 10h6" />
+        <path d="M9 14h4" />
+      </svg>
+    ),
+    stats: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10" />
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" />
+      </svg>
+    ),
+  };
+
+  const welcomeMessages = {
+    admin: "Xin chào Quản trị viên! Bạn có toàn quyền thiết lập danh mục lớp, thêm sửa xoá sinh viên và kiểm tra báo cáo.",
+    teacher: "Kính chào Giảng viên! Hãy chọn lớp và ngày tương ứng để bắt đầu điểm danh hoặc tra cứu báo cáo chuyên cần.",
+    student: "Chào bạn Sinh viên! Bạn có thể xem lại chi tiết lịch sử chuyên cần cá nhân và tỷ lệ chuyên cần của mình.",
+  };
+
+  const activeTabTitle = {
+    attendance: isStudent ? "Lịch sử điểm danh" : "Quản lý điểm danh",
+    students: "Danh sách sinh viên",
+    classes: "Danh mục lớp học",
+    stats: "Báo cáo chuyên cần",
+  };
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Hệ thống điểm danh</p>
-          <h1>Student Attendance System</h1>
+    <div className="app-container">
+      <aside className="sidebar">
+        <div className="sidebar-top">
+          <div className="sidebar-brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+              <path d="M9 10h6" />
+              <path d="M9 14h4" />
+            </svg>
+            <h2>SAS Portal</h2>
+          </div>
+
+          <nav className="sidebar-nav" aria-label="Tab navigation">
+            {tabs.map(([key, label]) => (
+              <button
+                className={activeTab === key ? "active" : ""}
+                key={key}
+                onClick={() => setActiveTab(key)}
+                type="button"
+              >
+                {tabIcons[key]}
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
         </div>
-        <div className={`health ${health?.status === "ok" ? "ok" : "down"}`}>
-          <span />
-          <strong>{health?.database === "ok" ? "MySQL OK" : "Đang kiểm tra"}</strong>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-profile-card">
+            <div className="sidebar-user">
+              <div className="user-avatar">
+                {session.user.fullName ? session.user.fullName.substring(0, 2).toUpperCase() : "US"}
+              </div>
+              <div className="user-info">
+                <strong>{session.user.fullName}</strong>
+                <span>{roleLabels[role] || role}</span>
+              </div>
+            </div>
+
+            <div className={`health ${health?.status === "ok" ? "ok" : "down"}`}>
+              <span />
+              <strong>{health?.database === "ok" ? "MySQL Online" : "Đang kiểm tra"}</strong>
+            </div>
+
+            <button className="logout-btn" type="button" onClick={handleLogout}>
+              Đăng xuất
+            </button>
+          </div>
         </div>
-        <div className="user-box">
-          <strong>{session.user.fullName}</strong>
-          <span>{roleLabels[role] || role}</span>
-          <button type="button" onClick={handleLogout}>
-            Đăng xuất
-          </button>
+      </aside>
+
+      <main className="content-area">
+        <header className="content-header">
+          <div>
+            <p className="eyebrow">Hệ thống điểm danh</p>
+            <h1>{activeTabTitle[activeTab]}</h1>
+          </div>
+          <div className="header-date">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>{new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
+        </header>
+
+        {(message || error) && (
+          <section className={`notice ${error ? "error" : "success"}`}>
+            <span style={{ flex: 1 }}>{error || message}</span>
+            <button
+              onClick={() => {
+                setMessage("");
+                setError("");
+              }}
+              type="button"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+                padding: "2px",
+                marginLeft: "8px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: 0.6,
+                transition: "opacity 0.2s",
+                height: "auto",
+                width: "auto"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </section>
+        )}
+
+        <div className="dashboard-content-layout">
+          <div className="dashboard-main-col">
+            {activeTab === "attendance" && (
+              <AttendancePanel
+                attendanceDate={attendanceDate}
+                attendanceLock={attendanceLock}
+                attendanceRows={attendanceRows}
+                attendanceStatusFilter={attendanceStatusFilter}
+                attendanceStudentFilter={attendanceStudentFilter}
+                canMarkAttendance={canMarkAttendance}
+                classes={classes}
+                isStudent={isStudent}
+                onDateChange={handleDateChange}
+                onFilter={handleAttendanceFilter}
+                onLock={handleLockAttendance}
+                onSave={handleSaveAttendance}
+                onSelectedClassChange={handleSelectedClassChange}
+                onStatusChange={updateAttendance}
+                onUnlockAttendance={handleUnlockAttendance}
+                selectedClass={selectedClass}
+                setAttendanceStatusFilter={setAttendanceStatusFilter}
+                setAttendanceStudentFilter={setAttendanceStudentFilter}
+              />
+            )}
+
+            {activeTab === "students" && (
+              <StudentsPanel
+                canImportStudents={canImportStudents}
+                classes={classes}
+                isAdmin={isAdmin}
+                onCreateStudent={handleCreateStudent}
+                onDeleteStudent={handleDeleteStudent}
+                onEditStudent={editStudent}
+                onImportStudents={handleImportStudents}
+                onSelectedClassChange={handleSelectedClassChange}
+                selectedClass={selectedClass}
+                setSelectedFile={setSelectedFile}
+                setStudentForm={setStudentForm}
+                studentForm={studentForm}
+                students={students}
+              />
+            )}
+
+            {activeTab === "classes" && isAdmin && (
+              <ClassesPanel
+                classForm={classForm}
+                classes={classes}
+                onDeleteClass={handleDeleteClass}
+                onSubmit={handleClassSubmit}
+                setClassForm={setClassForm}
+              />
+            )}
+
+            {activeTab === "stats" && (
+              <StatsPanel
+                classes={classes}
+                isStudent={isStudent}
+                onDownloadReport={handleDownloadReport}
+                onFilter={handleStatsFilter}
+                onSelectedClassChange={handleSelectedClassChange}
+                selectedClass={selectedClass}
+                setStatsFrom={setStatsFrom}
+                setStatsStudentFilter={setStatsStudentFilter}
+                setStatsTo={setStatsTo}
+                stats={stats}
+                statsFrom={statsFrom}
+                statsStudentFilter={statsStudentFilter}
+                statsTo={statsTo}
+              />
+            )}
+          </div>
+
+          <div className="dashboard-side-col">
+            <div className="welcome-banner">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <div>
+                <strong>Bảng điều khiển {roleLabels[role]}</strong>
+                <p>{welcomeMessages[role] || "Chúc bạn một ngày học tập và làm việc hiệu quả."}</p>
+              </div>
+            </div>
+
+            <section className="summary-grid">
+              <article className="card-class">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Lớp đang chọn</span>
+                  <div className="metric-icon-wrap">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+                  </div>
+                </div>
+                <strong>{selectedClass || "-"}</strong>
+              </article>
+              <article className="card-students">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Sinh viên trong lớp</span>
+                  <div className="metric-icon-wrap">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  </div>
+                </div>
+                <strong>{students.length}</strong>
+              </article>
+              <article className="card-present">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Có mặt ngày chọn</span>
+                  <div className="metric-icon-wrap">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                  </div>
+                </div>
+                <strong>{presentToday}</strong>
+              </article>
+            </section>
+          </div>
         </div>
-      </header>
 
-      {(message || error) && (
-        <section className={`notice ${error ? "error" : "success"}`}>
-          {error || message}
-        </section>
+        <footer className="app-footer">
+          <p>© 2026 Student Attendance System. DevOps & UI/UX Orchestrated by dpt004.</p>
+        </footer>
+      </main>
+
+      {unlockConfirmOpen && (
+        <div className="custom-modal-overlay">
+          <div className="custom-modal">
+            <div className="custom-modal-header">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <h3>Xác nhận mở khóa</h3>
+            </div>
+            <div className="custom-modal-body">
+              <p>Bạn có chắc chắn muốn mở khóa điểm danh cho lớp <strong>{selectedClass}</strong> ngày <strong>{attendanceDate.split('-').reverse().join('/')}</strong> không?</p>
+              <p className="custom-modal-subtext">Sau khi mở khóa, các giáo viên có thể chỉnh sửa lại trạng thái điểm danh của học viên.</p>
+            </div>
+            <div className="custom-modal-footer">
+              <button className="modal-cancel-btn" onClick={() => setUnlockConfirmOpen(false)}>Hủy bỏ</button>
+              <button className="modal-confirm-btn" onClick={confirmUnlockAttendance}>Đồng ý mở khóa</button>
+            </div>
+          </div>
+        </div>
       )}
-
-      <section className="summary-grid">
-        <article>
-          <span>Lớp đang chọn</span>
-          <strong>{selectedClass || "-"}</strong>
-        </article>
-        <article>
-          <span>Sinh viên trong lớp</span>
-          <strong>{students.length}</strong>
-        </article>
-        <article>
-          <span>Có mặt ngày chọn</span>
-          <strong>{presentToday}</strong>
-        </article>
-      </section>
-
-      <nav className="tabs" aria-label="Attendance views">
-        {tabs.map(([key, label]) => (
-          <button
-            className={activeTab === key ? "active" : ""}
-            key={key}
-            onClick={() => setActiveTab(key)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      {activeTab === "attendance" && (
-        <AttendancePanel
-          attendanceDate={attendanceDate}
-          attendanceLock={attendanceLock}
-          attendanceRows={attendanceRows}
-          attendanceStatusFilter={attendanceStatusFilter}
-          attendanceStudentFilter={attendanceStudentFilter}
-          canMarkAttendance={canMarkAttendance}
-          classes={classes}
-          isStudent={isStudent}
-          onDateChange={handleDateChange}
-          onFilter={handleAttendanceFilter}
-          onLock={handleLockAttendance}
-          onSave={handleSaveAttendance}
-          onSelectedClassChange={handleSelectedClassChange}
-          onStatusChange={updateAttendance}
-          selectedClass={selectedClass}
-          setAttendanceStatusFilter={setAttendanceStatusFilter}
-          setAttendanceStudentFilter={setAttendanceStudentFilter}
-        />
-      )}
-
-      {activeTab === "students" && (
-        <StudentsPanel
-          canImportStudents={canImportStudents}
-          classes={classes}
-          isAdmin={isAdmin}
-          onCreateStudent={handleCreateStudent}
-          onDeleteStudent={handleDeleteStudent}
-          onEditStudent={editStudent}
-          onImportStudents={handleImportStudents}
-          onSelectedClassChange={handleSelectedClassChange}
-          selectedClass={selectedClass}
-          setSelectedFile={setSelectedFile}
-          setStudentForm={setStudentForm}
-          studentForm={studentForm}
-          students={students}
-        />
-      )}
-
-      {activeTab === "classes" && isAdmin && (
-        <ClassesPanel
-          classForm={classForm}
-          classes={classes}
-          onDeleteClass={handleDeleteClass}
-          onSubmit={handleClassSubmit}
-          setClassForm={setClassForm}
-        />
-      )}
-
-      {activeTab === "stats" && (
-        <StatsPanel
-          classes={classes}
-          isStudent={isStudent}
-          onDownloadReport={handleDownloadReport}
-          onFilter={handleStatsFilter}
-          onSelectedClassChange={handleSelectedClassChange}
-          selectedClass={selectedClass}
-          setStatsFrom={setStatsFrom}
-          setStatsStudentFilter={setStatsStudentFilter}
-          setStatsTo={setStatsTo}
-          stats={stats}
-          statsFrom={statsFrom}
-          statsStudentFilter={statsStudentFilter}
-          statsTo={statsTo}
-        />
-      )}
-    </main>
+    </div>
   );
 }

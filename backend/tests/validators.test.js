@@ -28,6 +28,6 @@ test("validateAttendanceRecords normalizes valid records", () => {
     validateAttendanceRecords([
       { studentId: "1", status: "present" },
     ]),
-    [{ studentId: 1, status: "present" }],
+    [{ studentId: 1, status: "present", absenceReason: null, isExcused: false }],
   );
 });

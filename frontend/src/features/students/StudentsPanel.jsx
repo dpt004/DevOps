@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { ClassSelect, classLabel } from "../../components/ClassSelect.jsx";
+import { getUnassignedStudentUsers } from "../../api/client.js";
 
 export function StudentsPanel({
   canImportStudents,
@@ -15,6 +17,16 @@ export function StudentsPanel({
   studentForm,
   students,
 }) {
+  const [unassignedUsers, setUnassignedUsers] = useState([]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      getUnassignedStudentUsers()
+        .then(setUnassignedUsers)
+        .catch((err) => console.error("Error fetching unassigned student users:", err));
+    }
+  }, [students, isAdmin]);
+
   return (
     <section className="two-column">
       {canImportStudents && (
@@ -41,27 +53,74 @@ export function StudentsPanel({
       {isAdmin && (
         <form className="panel" onSubmit={onCreateStudent}>
           <h2>{studentForm.id ? "Sửa sinh viên" : "Thêm sinh viên"}</h2>
-          <input
-            placeholder="MSSV"
-            value={studentForm.studentCode}
-            onChange={(event) =>
-              setStudentForm({
-                ...studentForm,
-                studentCode: event.target.value,
-              })
-            }
-          />
-          <input
-            placeholder="Họ tên"
-            value={studentForm.fullName}
-            onChange={(event) =>
-              setStudentForm({ ...studentForm, fullName: event.target.value })
-            }
-          />
+          
+          {studentForm.id ? (
+            <>
+              <input
+                placeholder="MSSV"
+                value={studentForm.studentCode}
+                required
+                onChange={(event) =>
+                  setStudentForm({
+                    ...studentForm,
+                    studentCode: event.target.value,
+                  })
+                }
+              />
+              <input
+                placeholder="Họ tên"
+                value={studentForm.fullName}
+                required
+                onChange={(event) =>
+                  setStudentForm({ ...studentForm, fullName: event.target.value })
+                }
+              />
+            </>
+          ) : (
+            unassignedUsers.length === 0 ? (
+              <p className="hint" style={{ color: "var(--danger)", textAlign: "left", marginBottom: "16px", fontWeight: "600" }}>
+                ⚠️ Tất cả tài khoản sinh viên đã được xếp lớp.
+              </p>
+            ) : (
+              <label style={{ display: "block", marginBottom: "16px" }}>
+                Tài khoản sinh viên đã đăng ký
+                <select
+                  value={studentForm.studentCode}
+                  required
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    const selectedUser = unassignedUsers.find(u => u.studentCode === val);
+                    if (selectedUser) {
+                      setStudentForm({
+                        ...studentForm,
+                        studentCode: selectedUser.studentCode,
+                        fullName: selectedUser.fullName,
+                      });
+                    } else {
+                      setStudentForm({
+                        ...studentForm,
+                        studentCode: "",
+                        fullName: "",
+                      });
+                    }
+                  }}
+                >
+                  <option value="">-- Chọn tài khoản sinh viên --</option>
+                  {unassignedUsers.map((user) => (
+                    <option key={user.studentCode} value={user.studentCode}>
+                      {user.studentCode} - {user.fullName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          )}
+
           <label>
-            Lớp
+            Lớp xếp vào
             <select
               value={studentForm.className}
+              required
               onChange={(event) =>
                 setStudentForm({
                   ...studentForm,
@@ -94,7 +153,12 @@ export function StudentsPanel({
                 Hủy
               </button>
             )}
-            <button type="submit">{studentForm.id ? "Lưu sửa" : "Thêm"}</button>
+            <button 
+              type="submit" 
+              disabled={!studentForm.id && unassignedUsers.length === 0}
+            >
+              {studentForm.id ? "Lưu sửa" : "Thêm vào lớp"}
+            </button>
           </div>
         </form>
       )}

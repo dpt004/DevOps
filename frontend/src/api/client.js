@@ -56,6 +56,14 @@ export function login(username, password) {
   });
 }
 
+export function register(username, fullName, password, role) {
+  return request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, fullName, password, role }),
+  });
+}
+
 export function logout() {
   return request("/auth/logout", {
     method: "POST",
@@ -96,6 +104,10 @@ export function getStudents(params = {}) {
   return request(`/students${queryString(params)}`);
 }
 
+export function getUnassignedStudentUsers() {
+  return request("/users/unassigned-students");
+}
+
 export function createStudent(student) {
   return request("/students", {
     method: "POST",
@@ -133,6 +145,10 @@ export function getAttendance(params) {
   return request(`/attendance${queryString(params)}`);
 }
 
+export function getMarkedDates(className) {
+  return request(`/attendance/dates?className=${encodeURIComponent(className)}`);
+}
+
 export function saveAttendance(date, className, records) {
   return request("/attendance", {
     method: "POST",
@@ -143,6 +159,14 @@ export function saveAttendance(date, className, records) {
 
 export function lockAttendance(date, className) {
   return request("/attendance/lock", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date, className }),
+  });
+}
+
+export function unlockAttendance(date, className) {
+  return request("/attendance/unlock", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ date, className }),

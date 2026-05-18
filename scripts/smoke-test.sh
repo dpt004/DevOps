@@ -2,7 +2,7 @@
 set -eu
 
 BACKEND_URL="http://localhost:4000/api/health"
-FRONTEND_URL="http://localhost:8080"
+FRONTEND_URL="http://localhost:8082"
 
 echo "Checking backend: $BACKEND_URL"
 curl --fail --silent "$BACKEND_URL" | grep '"status": "ok"' >/dev/null

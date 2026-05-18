@@ -81,6 +81,8 @@ export async function migrate() {
       attendance_date DATE NOT NULL,
       status VARCHAR(16) NOT NULL CHECK (status IN ('present', 'absent', 'late', 'excused')),
       marked_by_user_id INT NULL,
+      absence_reason VARCHAR(255) NULL,
+      is_excused BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE (student_id, attendance_date),
@@ -92,6 +94,8 @@ export async function migrate() {
 
   await ignoreMigrationError("ALTER TABLE attendance DROP CHECK attendance_chk_1");
   await ignoreMigrationError("ALTER TABLE attendance ADD COLUMN marked_by_user_id INT NULL");
+  await ignoreMigrationError("ALTER TABLE attendance ADD COLUMN absence_reason VARCHAR(255) NULL");
+  await ignoreMigrationError("ALTER TABLE attendance ADD COLUMN is_excused BOOLEAN NOT NULL DEFAULT FALSE");
 
   await query(`
     CREATE TABLE IF NOT EXISTS attendance_locks (

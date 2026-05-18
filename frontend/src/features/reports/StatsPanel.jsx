@@ -82,11 +82,33 @@ export function StatsPanel({
                 <td>{row.student.fullName}</td>
                 <td>{row.student.className}</td>
                 <td>{row.totalMarked}</td>
-                <td>{row.presentCount}</td>
-                <td>{row.absentCount}</td>
-                <td>{row.lateCount}</td>
-                <td>{row.excusedCount}</td>
-                <td>{row.attendanceRate}%</td>
+                <td>
+                  <span className="status-pill present" style={{ minWidth: '36px', minHeight: '24px', padding: '2px 8px', fontSize: '0.85rem' }}>
+                    {row.presentCount}
+                  </span>
+                </td>
+                <td>
+                  <span className="status-pill absent" style={{ minWidth: '36px', minHeight: '24px', padding: '2px 8px', fontSize: '0.85rem' }}>
+                    {row.absentCount}
+                  </span>
+                </td>
+                <td>
+                  <span className="status-pill late" style={{ minWidth: '36px', minHeight: '24px', padding: '2px 8px', fontSize: '0.85rem' }}>
+                    {row.lateCount}
+                  </span>
+                </td>
+                <td>
+                  <span className="status-pill excused" style={{ minWidth: '36px', minHeight: '24px', padding: '2px 8px', fontSize: '0.85rem' }}>
+                    {row.excusedCount}
+                  </span>
+                </td>
+                <td style={{ 
+                  color: row.attendanceRate >= 90 ? 'var(--green)' : row.attendanceRate >= 75 ? 'var(--amber)' : 'var(--red)', 
+                  fontWeight: '800', 
+                  fontFamily: "'Fira Code', monospace" 
+                }}>
+                  {row.attendanceRate}%
+                </td>
               </tr>
             ))}
           </tbody>

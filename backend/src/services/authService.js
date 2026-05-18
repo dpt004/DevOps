@@ -92,3 +92,70 @@ export async function login(usernameValue, passwordValue) {
     token: createToken(safeUser),
   };
 }
+
+export async function register(usernameValue, fullNameValue, passwordValue, roleValue = "teacher") {
+  const username = String(usernameValue || "").trim();
+  const fullName = String(fullNameValue || "").trim();
+  const password = String(passwordValue || "");
+  const role = String(roleValue || "teacher").trim();
+
+  if (!username || !fullName || !password) {
+    throw Object.assign(new Error("Vui lòng nhập đầy đủ họ tên, tên đăng nhập và mật khẩu."), {
+      statusCode: 400,
+    });
+  }
+
+  if (password.length < 6) {
+    throw Object.assign(new Error("Mật khẩu phải chứa ít nhất 6 ký tự."), {
+      statusCode: 400,
+    });
+  }
+
+  if (!["teacher", "student"].includes(role)) {
+    throw Object.assign(new Error("Quyền đăng ký tài khoản không hợp lệ."), {
+      statusCode: 400,
+    });
+  }
+
+  // Check if user already exists
+  const existing = await query(
+    `
+      SELECT id FROM users
+      WHERE username = ?
+      LIMIT 1
+    `,
+    [username],
+  );
+
+  if (existing.length > 0) {
+    throw Object.assign(new Error("Tên đăng nhập này đã tồn tại trên hệ thống."), {
+      statusCode: 409,
+    });
+  }
+
+  const passwordHash = hashPassword(password, username);
+
+  const result = await query(
+    `
+      INSERT INTO users (username, full_name, role, password_hash)
+      VALUES (?, ?, ?, ?)
+    `,
+    [username, fullName, role, passwordHash],
+  );
+
+  const rows = await query(
+    `
+      SELECT id, username, full_name, role, student_id
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [result.insertId],
+  );
+
+  const safeUser = publicUser(rows[0]);
+  return {
+    user: safeUser,
+    token: createToken(safeUser),
+  };
+}

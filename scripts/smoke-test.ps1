@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $backendUrl = "http://localhost:4000/api/health"
-$frontendUrl = "http://localhost:8080"
+$frontendUrl = "http://localhost:8082"
 
 Write-Host "Checking backend: $backendUrl"
 $backend = Invoke-RestMethod -Uri $backendUrl -TimeoutSec 5

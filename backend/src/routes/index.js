@@ -13,15 +13,18 @@ import {
   deleteStudent,
   getAttendanceByDate,
   getAttendanceStats,
+  getMarkedDatesForClass,
+  getUnassignedStudentUsers,
   listClasses,
   listStudents,
   lockAttendance,
   saveAttendance,
   statsToCsv,
+  unlockAttendance,
   updateClass,
   updateStudent,
 } from "../services/attendanceService.js";
-import { login } from "../services/authService.js";
+import { login, register } from "../services/authService.js";
 
 export const apiRouter = Router();
 const upload = multer({
@@ -48,6 +51,20 @@ apiRouter.get("/health", async (req, res, next) => {
 apiRouter.post("/auth/login", async (req, res, next) => {
   try {
     res.json({ data: await login(req.body.username, req.body.password) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/auth/register", async (req, res, next) => {
+  try {
+    const data = await register(
+      req.body.username,
+      req.body.fullName,
+      req.body.password,
+      req.body.role,
+    );
+    res.status(201).json({ data });
   } catch (error) {
     next(error);
   }
@@ -96,6 +113,15 @@ apiRouter.put("/classes/:id", requireAuth, requireRole("admin"), async (req, res
 apiRouter.delete("/classes/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     res.json({ data: await deleteClass(req.params.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/users/unassigned-students", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const students = await getUnassignedStudentUsers();
+    res.json({ data: students });
   } catch (error) {
     next(error);
   }
@@ -183,6 +209,24 @@ apiRouter.post("/attendance/lock", requireAuth, requireRole("admin", "teacher"),
     res.json({
       data: await lockAttendance(req.body.date, req.body.className, req.user),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/attendance/unlock", requireAuth, requireRole("admin", "teacher"), async (req, res, next) => {
+  try {
+    await unlockAttendance(req.body.date, req.body.className);
+    res.json({ data: { success: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/attendance/dates", requireAuth, async (req, res, next) => {
+  try {
+    const { className } = req.query;
+    res.json({ data: await getMarkedDatesForClass(className) });
   } catch (error) {
     next(error);
   }

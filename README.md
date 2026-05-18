@@ -161,3 +161,7 @@ GitHub Actions chạy khi `push` hoặc `pull_request` vào `main` và `dev`:
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Debugging and incidents](docs/debugging-incidents.md)
+
+## Contributors
+
+- [dpt004](https://github.com/dpt004) — Lead DevOps Engineer & Main Contributor

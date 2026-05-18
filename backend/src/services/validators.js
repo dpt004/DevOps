@@ -44,6 +44,8 @@ export function validateAttendanceRecords(records) {
     return {
       studentId,
       status: normalizeStatus(record.status),
+      absenceReason: typeof record.absenceReason === "string" ? record.absenceReason : null,
+      isExcused: Boolean(record.isExcused),
     };
   });
 }
