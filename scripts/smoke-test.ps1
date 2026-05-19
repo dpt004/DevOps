@@ -1,7 +1,10 @@
 $ErrorActionPreference = "Stop"
 
-$backendUrl = "http://localhost:4000/api/health"
-$frontendUrl = "http://localhost:8082"
+$backendPort = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "4000" }
+$frontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "8080" }
+
+$backendUrl = "http://localhost:$backendPort/api/health"
+$frontendUrl = "http://localhost:$frontendPort"
 
 Write-Host "Checking backend: $backendUrl"
 $backend = Invoke-RestMethod -Uri $backendUrl -TimeoutSec 5
