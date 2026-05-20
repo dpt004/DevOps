@@ -1,13 +1,31 @@
-import assert from "node:assert/strict";
 import test from "node:test";
-import { startOfMonthISO, todayISO } from "../src/utils/date.js";
+import assert from "node:assert/strict";
+import {
+  dateForWeekday,
+  isoDayOfWeek,
+  startOfMonthISO,
+  todayISO,
+} from "../src/utils/date.js";
 
 test("todayISO returns yyyy-mm-dd in local time", () => {
-  const date = new Date("2026-05-14T10:20:30.000Z");
-  assert.match(todayISO(date), /^\d{4}-\d{2}-\d{2}$/);
+  const value = todayISO(new Date("2026-05-20T12:00:00"));
+  assert.match(value, /^\d{4}-\d{2}-\d{2}$/);
 });
 
 test("startOfMonthISO returns the first day of the current month", () => {
-  const date = new Date("2026-05-14T10:20:30.000Z");
-  assert.equal(startOfMonthISO(date).slice(-2), "01");
+  assert.equal(
+    startOfMonthISO(new Date("2026-05-20T12:00:00")),
+    "2026-05-01",
+  );
+});
+
+test("isoDayOfWeek uses Monday=1 … Sunday=7", () => {
+  assert.equal(isoDayOfWeek(new Date("2026-05-18T12:00:00")), 1);
+  assert.equal(isoDayOfWeek(new Date("2026-05-24T12:00:00")), 7);
+});
+
+test("dateForWeekday returns ISO date in current week", () => {
+  const wednesday = new Date("2026-05-20T12:00:00");
+  assert.equal(dateForWeekday(1, wednesday), "2026-05-18");
+  assert.equal(dateForWeekday(3, wednesday), "2026-05-20");
 });

@@ -6,18 +6,28 @@ import { ClassesPanel } from "./features/classes/ClassesPanel.jsx";
 import { StatsPanel } from "./features/reports/StatsPanel.jsx";
 import { StudentsPanel } from "./features/students/StudentsPanel.jsx";
 import {
+  newScheduleForm,
+  ScheduleAssignmentPanel,
+} from "./features/schedule/ScheduleAssignmentPanel.jsx";
+import { TeacherTimetablePanel } from "./features/schedule/TeacherTimetablePanel.jsx";
+import {
   clearStoredSession,
   createClass,
+  createSchedule,
   createStudent,
   deleteClass,
+  deleteSchedule,
   deleteStudent,
   downloadAttendanceReport,
   getAttendance,
   getClasses,
   getHealth,
+  getSchedules,
+  getScheduleTeachers,
   getStats,
   getStudents,
   getStoredSession,
+  getTimetable,
   importStudents,
   lockAttendance,
   login,
@@ -26,9 +36,15 @@ import {
   setStoredSession,
   unlockAttendance,
   updateClass,
+  updateSchedule,
   updateStudent,
 } from "./api/client.js";
-import { startOfMonthISO, todayISO } from "./utils/date.js";
+import { isoDayOfWeek, startOfMonthISO, todayISO } from "./utils/date.js";
+
+function defaultTabForRole(role) {
+  if (role === "teacher" || role === "student") return "timetable";
+  return "attendance";
+}
 
 function newStudentForm(className = "") {
   return {
@@ -49,7 +65,9 @@ function newClassForm() {
 
 export function App() {
   const [session, setSession] = useState(getStoredSession());
-  const [activeTab, setActiveTab] = useState("attendance");
+  const [activeTab, setActiveTab] = useState(() =>
+    defaultTabForRole(getStoredSession()?.user?.role),
+  );
   const [health, setHealth] = useState(null);
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState("");
@@ -69,6 +87,10 @@ export function App() {
   const [classForm, setClassForm] = useState(newClassForm());
   const [selectedFile, setSelectedFile] = useState(null);
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
+  const [schedules, setSchedules] = useState([]);
+  const [timetableSlots, setTimetableSlots] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [scheduleForm, setScheduleForm] = useState(newScheduleForm());
   const [loginForm, setLoginForm] = useState({
     username: "admin",
     password: "Admin@123",
@@ -86,11 +108,20 @@ export function App() {
     [attendanceRows],
   );
   const tabs = [
+    role === "teacher" || role === "student"
+      ? ["timetable", "Thời khóa biểu"]
+      : null,
     ["attendance", isStudent ? "Lịch sử" : "Điểm danh"],
-    ["students", "Sinh viên"],
+    isStudent ? null : ["students", "Sinh viên"],
     isAdmin ? ["classes", "Lớp"] : null,
+    isAdmin ? ["schedules", "Phân công tiết"] : null,
     ["stats", "Báo cáo"],
   ].filter(Boolean);
+
+  const todayTimetableCount = useMemo(() => {
+    const today = isoDayOfWeek();
+    return timetableSlots.filter((slot) => slot.dayOfWeek === today).length;
+  }, [timetableSlots]);
 
   function handleApiError(err) {
     if (err.status === 401) {
@@ -151,6 +182,22 @@ export function App() {
     setAttendanceLock(result.lock || null);
   }
 
+  async function loadScheduleData() {
+    if (role === "admin") {
+      const [scheduleData, teacherData] = await Promise.all([
+        getSchedules(),
+        getScheduleTeachers(),
+      ]);
+      setSchedules(scheduleData);
+      setTeachers(teacherData);
+    }
+
+    if (role === "teacher" || role === "admin" || role === "student") {
+      const slots = await getTimetable();
+      setTimetableSlots(slots);
+    }
+  }
+
   async function loadStats(className = selectedClass, studentCode = statsStudentFilter) {
     if (!statsFrom || !statsTo) {
       return;
@@ -171,6 +218,7 @@ export function App() {
         const className = await loadBaseData();
         await loadAttendance(attendanceDate, className);
         await loadStats(className);
+        await loadScheduleData();
       });
     }
   }, [session]);
@@ -389,6 +437,65 @@ export function App() {
     });
   }
 
+  async function handleScheduleSubmit(event) {
+    event.preventDefault();
+    await runTask(async () => {
+      setMessage("");
+      const payload = {
+        classId: Number(scheduleForm.classId),
+        teacherId: Number(scheduleForm.teacherId),
+        dayOfWeek: scheduleForm.dayOfWeek,
+        startTime: scheduleForm.startTime,
+        endTime: scheduleForm.endTime,
+        room: scheduleForm.room,
+        subjectName: scheduleForm.subjectName,
+      };
+
+      const isEdit = Boolean(scheduleForm.id);
+      if (isEdit) {
+        await updateSchedule({ ...payload, id: scheduleForm.id });
+      } else {
+        await createSchedule(payload);
+      }
+
+      setScheduleForm(newScheduleForm());
+      await loadScheduleData();
+      setMessage(
+        isEdit ? "Đã cập nhật phân công tiết." : "Đã thêm phân công tiết.",
+      );
+    });
+  }
+
+  async function handleDeleteSchedule(scheduleId) {
+    await runTask(async () => {
+      setMessage("");
+      await deleteSchedule(scheduleId);
+      await loadScheduleData();
+      setMessage("Đã xóa phân công tiết.");
+    });
+  }
+
+  async function handleOpenAttendanceFromSlot({ classCode, date }) {
+    setActiveTab("attendance");
+    setAttendanceDate(date);
+    await runTask(async () => {
+      if (!isStudent) {
+        const studentData = await getStudents(classCode ? { className: classCode } : {});
+        setStudents(studentData);
+      }
+      if (classCode) {
+        setSelectedClass(classCode);
+      }
+      await loadAttendance(date, classCode || selectedClass);
+      const dateLabel = date.split("-").reverse().join("/");
+      setMessage(
+        isStudent
+          ? `Đã mở lịch sử điểm danh ngày ${dateLabel}.`
+          : `Đã mở điểm danh lớp ${classCode} — ${dateLabel}.`,
+      );
+    });
+  }
+
   async function handleDownloadReport() {
     await runTask(async () => {
       await downloadAttendanceReport({
@@ -408,6 +515,7 @@ export function App() {
       const loginSession = await login(loginForm.username, loginForm.password);
       setStoredSession(loginSession);
       setSession(loginSession);
+      setActiveTab(defaultTabForRole(loginSession.user.role));
     });
   }
 
@@ -477,18 +585,34 @@ export function App() {
         <line x1="6" y1="20" x2="6" y2="14" />
       </svg>
     ),
+    timetable: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    ),
+    schedules: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
   };
 
   const welcomeMessages = {
     admin: "Xin chào Quản trị viên! Bạn có toàn quyền thiết lập danh mục lớp, thêm sửa xoá sinh viên và kiểm tra báo cáo.",
-    teacher: "Kính chào Giảng viên! Hãy chọn lớp và ngày tương ứng để bắt đầu điểm danh hoặc tra cứu báo cáo chuyên cần.",
-    student: "Chào bạn Sinh viên! Bạn có thể xem lại chi tiết lịch sử chuyên cần cá nhân và tỷ lệ chuyên cần của mình.",
+    teacher: "Kính chào Giảng viên! Mở Thời khóa biểu để chọn tiết dạy và điểm danh nhanh, hoặc tra cứu báo cáo chuyên cần.",
+    student: "Chào bạn Sinh viên! Xem Thời khóa biểu lớp, tra lịch sử điểm danh theo ngày và tỷ lệ chuyên cần cá nhân.",
   };
 
   const activeTabTitle = {
+    timetable: isStudent ? "Thời khóa biểu lớp học" : "Thời khóa biểu giảng dạy",
     attendance: isStudent ? "Lịch sử điểm danh" : "Quản lý điểm danh",
     students: "Danh sách sinh viên",
     classes: "Danh mục lớp học",
+    schedules: "Phân công tiết học",
     stats: "Báo cáo chuyên cần",
   };
 
@@ -593,6 +717,27 @@ export function App() {
 
         <div className="dashboard-content-layout">
           <div className="dashboard-main-col">
+            {activeTab === "timetable" &&
+              (role === "teacher" || role === "admin" || role === "student") && (
+              <TeacherTimetablePanel
+                isStudent={isStudent}
+                slots={timetableSlots}
+                onOpenAttendance={handleOpenAttendanceFromSlot}
+              />
+            )}
+
+            {activeTab === "schedules" && isAdmin && (
+              <ScheduleAssignmentPanel
+                classes={classes}
+                scheduleForm={scheduleForm}
+                schedules={schedules}
+                teachers={teachers}
+                onDeleteSchedule={handleDeleteSchedule}
+                onSubmit={handleScheduleSubmit}
+                setScheduleForm={setScheduleForm}
+              />
+            )}
+
             {activeTab === "attendance" && (
               <AttendancePanel
                 attendanceDate={attendanceDate}
@@ -695,6 +840,17 @@ export function App() {
                 </div>
                 <strong>{students.length}</strong>
               </article>
+              {(role === "teacher" || role === "admin" || role === "student") && (
+                <article className="card-schedule">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>{isStudent ? "Tiết học hôm nay" : "Tiết dạy hôm nay"}</span>
+                    <div className="metric-icon-wrap">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    </div>
+                  </div>
+                  <strong>{todayTimetableCount}</strong>
+                </article>
+              )}
               <article className="card-present">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Có mặt ngày chọn</span>

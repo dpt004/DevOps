@@ -98,6 +98,26 @@ export async function migrate() {
   await ignoreMigrationError("ALTER TABLE attendance ADD COLUMN is_excused BOOLEAN NOT NULL DEFAULT FALSE");
 
   await query(`
+    CREATE TABLE IF NOT EXISTS class_schedules (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      class_id INT NOT NULL,
+      teacher_id INT NOT NULL,
+      day_of_week TINYINT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      room VARCHAR(80) NULL,
+      subject_name VARCHAR(160) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_schedules_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_schedules_teacher
+        FOREIGN KEY (teacher_id) REFERENCES users(id)
+        ON DELETE RESTRICT
+    )
+  `);
+
+  await query(`
     CREATE TABLE IF NOT EXISTS attendance_locks (
       id INT AUTO_INCREMENT PRIMARY KEY,
       class_name VARCHAR(80) NOT NULL,
@@ -191,8 +211,99 @@ export async function seed() {
       teacher_id = VALUES(teacher_id)
   `);
 
+  await seedClassSchedules();
+
   logger.info("database seed completed", {
     users: seedUsers.length,
     students: seedStudents.length,
   });
+}
+
+async function seedClassSchedules() {
+  const schedules = [
+  {
+    classCode: "D21CQCN01",
+    teacherUsername: "teacher",
+    dayOfWeek: 1,
+    startTime: "07:00",
+    endTime: "09:00",
+    room: "A101",
+    subjectName: "Lập trình Web",
+  },
+  {
+    classCode: "D21CQCN01",
+    teacherUsername: "teacher",
+    dayOfWeek: 3,
+    startTime: "13:00",
+    endTime: "15:00",
+    room: "B203",
+    subjectName: "Cơ sở dữ liệu",
+  },
+  {
+    classCode: "D21CQCN02",
+    teacherUsername: "teacher",
+    dayOfWeek: 2,
+    startTime: "09:00",
+    endTime: "11:00",
+    room: "C305",
+    subjectName: "Mạng máy tính",
+  },
+  {
+    classCode: "D21CQCN02",
+    teacherUsername: "teacher",
+    dayOfWeek: 5,
+    startTime: "15:00",
+    endTime: "17:00",
+    room: "A102",
+    subjectName: "DevOps",
+  },
+];
+
+  for (const slot of schedules) {
+    await query(
+      `
+        INSERT INTO class_schedules (
+          class_id,
+          teacher_id,
+          day_of_week,
+          start_time,
+          end_time,
+          room,
+          subject_name
+        )
+        SELECT
+          c.id,
+          u.id,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?
+        FROM classes c
+        JOIN users u ON u.username = ?
+        WHERE c.class_code = ?
+          AND NOT EXISTS (
+            SELECT 1
+            FROM class_schedules cs
+            WHERE cs.class_id = c.id
+              AND cs.day_of_week = ?
+              AND cs.start_time = ?
+          )
+        LIMIT 1
+      `,
+      [
+        slot.dayOfWeek,
+        slot.startTime,
+        slot.endTime,
+        slot.room,
+        slot.subjectName,
+        slot.teacherUsername,
+        slot.classCode,
+        slot.dayOfWeek,
+        slot.startTime,
+      ],
+    );
+  }
+
+  logger.info("class schedules seed completed", { count: schedules.length });
 }
