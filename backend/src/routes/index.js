@@ -25,6 +25,14 @@ import {
   updateStudent,
 } from "../services/attendanceService.js";
 import { login, register } from "../services/authService.js";
+import {
+  createSchedule,
+  deleteSchedule,
+  getTeacherTimetable,
+  listSchedules,
+  listTeachers,
+  updateSchedule,
+} from "../services/scheduleService.js";
 
 export const apiRouter = Router();
 const upload = multer({
@@ -235,6 +243,54 @@ apiRouter.get("/attendance/dates", requireAuth, async (req, res, next) => {
 apiRouter.get("/stats", requireAuth, async (req, res, next) => {
   try {
     res.json({ data: await getAttendanceStats(req.query, req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/schedules/teachers", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await listTeachers() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/schedules/timetable", requireAuth, requireRole("admin", "teacher", "student"), async (req, res, next) => {
+  try {
+    res.json({ data: await getTeacherTimetable(req.user, req.query) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/schedules", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await listSchedules(req.query, req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/schedules", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.status(201).json({ data: await createSchedule(req.body) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.put("/schedules/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await updateSchedule(req.params.id, req.body) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/schedules/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    res.json({ data: await deleteSchedule(req.params.id) });
   } catch (error) {
     next(error);
   }

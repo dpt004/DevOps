@@ -177,6 +177,40 @@ export function getStats(params) {
   return request(`/stats${queryString(params)}`);
 }
 
+export function getSchedules(params = {}) {
+  return request(`/schedules${queryString(params)}`);
+}
+
+export function getTimetable(params = {}) {
+  return request(`/schedules/timetable${queryString(params)}`);
+}
+
+export function getScheduleTeachers() {
+  return request("/schedules/teachers");
+}
+
+export function createSchedule(payload) {
+  return request("/schedules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSchedule(payload) {
+  return request(`/schedules/${payload.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteSchedule(id) {
+  return request(`/schedules/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export async function downloadAttendanceReport(params) {
   const session = getStoredSession();
   const headers = new Headers();

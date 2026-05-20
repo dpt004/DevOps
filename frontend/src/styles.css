@@ -1943,4 +1943,212 @@ tbody tr:hover { background: var(--border-light); }
 .dp-today-btn:hover {
   background: var(--primary-light);
   border-color: rgba(79, 70, 229, 0.2);
+/* ── Timetable & schedule assignment ─────────── */
+.timetable-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timetable-today-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 4px solid var(--accent);
+}
+
+.timetable-today-banner h2 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.timetable-today-hint {
+  margin: 0;
+  color: var(--ink-tertiary);
+  font-size: 0.875rem;
+}
+
+.timetable-week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.timetable-day-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 160px;
+}
+
+.timetable-day-column.is-today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
+}
+
+.timetable-day-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.timetable-day-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.timetable-today-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warning-light);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+.timetable-day-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+}
+
+.timetable-empty {
+  margin: 0;
+  color: var(--ink-tertiary);
+  font-size: 0.85rem;
+}
+
+.timetable-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timetable-slot-card {
+  width: 100%;
+  height: auto;
+  padding: 12px;
+  text-align: left;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.timetable-slot-card:hover:not(:disabled) {
+  background: var(--primary-light);
+  border-color: var(--ink-tertiary);
+  transform: translateY(-1px);
+}
+
+.timetable-slot-time {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--ink-secondary);
+}
+
+.timetable-slot-time strong {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.timetable-slot-card h4 {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+}
+
+.timetable-slot-subject {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-tertiary);
+}
+
+.timetable-slot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+}
+
+.timetable-slot-cta {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.schedule-assignment .panel-hint {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--ink-tertiary);
+}
+
+.schedule-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.schedule-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.schedule-table-wrap {
+  overflow-x: auto;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.schedule-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-tertiary);
+}
+
+.card-schedule strong {
+  font-size: 1.75rem;
+}
+
+.timetable-empty-state {
+  text-align: center;
+  color: var(--ink-tertiary);
+}
+
+.timetable-slot-card.is-student {
+  border-left: 3px solid var(--info);
+}
+
+.timetable-slot-card.is-student:hover:not(:disabled) {
+  border-left-color: var(--info);
+  background: var(--info-light);
 }
