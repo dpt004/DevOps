@@ -53,7 +53,7 @@ export function StudentsPanel({
       {isAdmin && (
         <form className="panel" onSubmit={onCreateStudent}>
           <h2>{studentForm.id ? "Sửa sinh viên" : "Thêm sinh viên"}</h2>
-          
+
           {studentForm.id ? (
             <>
               <input
@@ -153,8 +153,8 @@ export function StudentsPanel({
                 Hủy
               </button>
             )}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={!studentForm.id && unassignedUsers.length === 0}
             >
               {studentForm.id ? "Lưu sửa" : "Thêm vào lớp"}

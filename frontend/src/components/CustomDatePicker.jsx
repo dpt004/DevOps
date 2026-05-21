@@ -85,7 +85,7 @@ export function CustomDatePicker({ value, onChange, selectedClass }) {
   const getDaysInMonth = () => {
     const days = [];
     const firstDayIndex = new Date(year, month, 1).getDay(); // Sunday=0, Monday=1...
-    
+
     // Shift Sunday to be index 6, Monday to be index 0
     const startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
 

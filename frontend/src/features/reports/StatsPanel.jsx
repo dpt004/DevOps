@@ -102,10 +102,10 @@ export function StatsPanel({
                     {row.excusedCount}
                   </span>
                 </td>
-                <td style={{ 
-                  color: row.attendanceRate >= 90 ? 'var(--green)' : row.attendanceRate >= 75 ? 'var(--amber)' : 'var(--red)', 
-                  fontWeight: '800', 
-                  fontFamily: "'Fira Code', monospace" 
+                <td style={{
+                  color: row.attendanceRate >= 90 ? 'var(--green)' : row.attendanceRate >= 75 ? 'var(--amber)' : 'var(--red)',
+                  fontWeight: '800',
+                  fontFamily: "'Fira Code', monospace"
                 }}>
                   {row.attendanceRate}%
                 </td>

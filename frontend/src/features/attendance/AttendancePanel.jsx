@@ -138,7 +138,7 @@ export function AttendancePanel({
                   const absenceReason = row.attendance?.absenceReason || "";
                   const isExcused = Boolean(row.attendance?.isExcused);
                   const markedBy = row.attendance?.markedBy?.fullName || "-";
-                  
+
                   let rowClass = "att-row";
                   if (isPresent) {
                     rowClass += " att-row-present";
@@ -160,7 +160,7 @@ export function AttendancePanel({
                         </div>
                       </td>
                       <td>{row.student.className}</td>
-                      
+
                       {/* Có mặt Column */}
                       <td style={{ textAlign: 'center' }}>
                         {canMarkAttendance ? (

@@ -1770,17 +1770,17 @@ tbody tr:hover { background: var(--border-light); }
     grid-template-columns: 1fr;
     gap: 24px;
   }
-  
+
   .dashboard-side-col {
     position: static;
     order: -1; /* Đưa phần thống kê lên trên cùng trên thiết bị di động/máy tính bảng */
   }
-  
+
   .dashboard-side-col .summary-grid {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .dashboard-side-col .summary-grid article {
     flex: 1 1 calc(33.333% - 16px);
     min-width: 200px;
