@@ -108,7 +108,7 @@ export function App() {
     [attendanceRows],
   );
   const tabs = [
-    role === "teacher" || role === "student"
+    role === "teacher" || role === "student" || role === "admin"
       ? ["timetable", "Thời khóa biểu"]
       : null,
     ["attendance", isStudent ? "Lịch sử" : "Điểm danh"],
