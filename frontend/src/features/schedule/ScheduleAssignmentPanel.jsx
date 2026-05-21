@@ -1,4 +1,4 @@
-import { dayOfWeekOptions } from "../../constants/schedule.js";
+import { dayOfWeekOptions, subjectOptions, roomOptions } from "../../constants/schedule.js";
 function newScheduleForm() {
   return {
     id: null,
@@ -111,20 +111,41 @@ export function ScheduleAssignmentPanel({
           </label>
         </div>
 
-        <input
-          placeholder="Tên môn học (tùy chọn)"
-          value={scheduleForm.subjectName}
-          onChange={(event) =>
-            setScheduleForm({ ...scheduleForm, subjectName: event.target.value })
-          }
-        />
-        <input
-          placeholder="Phòng học (tùy chọn)"
-          value={scheduleForm.room}
-          onChange={(event) =>
-            setScheduleForm({ ...scheduleForm, room: event.target.value })
-          }
-        />
+        <label>
+          Môn học
+          <select
+            required
+            value={scheduleForm.subjectName}
+            onChange={(event) =>
+              setScheduleForm({ ...scheduleForm, subjectName: event.target.value })
+            }
+          >
+            <option value="">— Chọn môn học —</option>
+            {subjectOptions.map((subject) => (
+              <option key={subject} value={subject}>
+                {subject}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Phòng học
+          <select
+            required
+            value={scheduleForm.room}
+            onChange={(event) =>
+              setScheduleForm({ ...scheduleForm, room: event.target.value })
+            }
+          >
+            <option value="">— Chọn phòng học —</option>
+            {roomOptions.map((room) => (
+              <option key={room} value={room}>
+                {room}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="actions">
           {scheduleForm.id && (
