@@ -7,6 +7,14 @@ function optionalInt(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function optionalBool(value, fallback = false) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
+}
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: optionalInt(process.env.PORT, 4000),
@@ -26,5 +34,7 @@ export const config = {
     user: process.env.DB_USER || "attendance",
     password: process.env.DB_PASSWORD || "attendance_password",
     name: process.env.DB_NAME || "attendance_db",
+    ssl: optionalBool(process.env.DB_SSL, false),
+    sslCaBase64: process.env.DB_SSL_CA_BASE64 || "",
   },
 };

@@ -3,6 +3,23 @@ import { config } from "../config.js";
 
 let poolInstance;
 
+function sslOptions() {
+  if (!config.database.ssl) {
+    return undefined;
+  }
+
+  if (config.database.sslCaBase64) {
+    return {
+      ca: Buffer.from(config.database.sslCaBase64, "base64").toString("utf8"),
+      rejectUnauthorized: true,
+    };
+  }
+
+  return {
+    rejectUnauthorized: false,
+  };
+}
+
 export function getPool() {
   if (!poolInstance) {
     poolInstance = mysql.createPool({
@@ -18,6 +35,7 @@ export function getPool() {
       keepAliveInitialDelay: 30000,
       maxIdle: 5,
       idleTimeout: 60000,
+      ssl: sslOptions(),
     });
   }
 
