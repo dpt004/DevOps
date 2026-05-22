@@ -1,0 +1,66 @@
+services:
+  - type: pserv
+    name: attendance-mysql
+    runtime: image
+    plan: starter
+    region: singapore
+    image:
+      url: docker.io/library/mysql:8.4
+    disk:
+      name: mysql-data
+      mountPath: /var/lib/mysql
+      sizeGB: 10
+    envVars:
+      - key: MYSQL_DATABASE
+        value: attendance_db
+      - key: MYSQL_USER
+        value: attendance
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_ROOT_PASSWORD
+        sync: false
+
+  - type: web
+    name: attendance-backend
+    runtime: docker
+    plan: starter
+    region: singapore
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: TRUST_PROXY
+        value: 1
+      - key: DB_HOST
+        fromService:
+          name: attendance-mysql
+          type: pserv
+          property: host
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        value: attendance_db
+      - key: DB_USER
+        value: attendance
+      - key: DB_PASSWORD
+        fromService:
+          name: attendance-mysql
+          type: pserv
+          envVarKey: MYSQL_PASSWORD
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AUTH_TOKEN_SECRET
+        generateValue: true
+      - key: AUTH_TOKEN_TTL_SECONDS
+        value: 28800
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_TEACHER_PASSWORD
+        sync: false
+      - key: SEED_STUDENT_PASSWORD
+        sync: false

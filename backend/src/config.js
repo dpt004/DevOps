@@ -11,6 +11,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: optionalInt(process.env.PORT, 4000),
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:8080",
+  trustProxy: process.env.TRUST_PROXY || "",
   auth: {
     tokenSecret:
       process.env.AUTH_TOKEN_SECRET || "dev_only_change_this_secret",

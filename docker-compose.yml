@@ -30,6 +30,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-attendance_db}
