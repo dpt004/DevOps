@@ -55,6 +55,7 @@ docker compose logs backend --tail 100
 ## Deploy
 
 - Có URL production hoặc môi trường VPS/WSL Ubuntu chạy Docker Compose.
+- URL production hiện tại: `https://sasdau.vercel.app`.
 - Chứng minh redeploy được:
 
 ```bash
