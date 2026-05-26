@@ -90,11 +90,9 @@ export function TeacherTimetablePanel({
                         <span>→ {slot.endTime}</span>
                       </div>
                       <h4>
-                        {isStudent
-                          ? slot.subjectName || slot.className || slot.classCode
-                          : slot.className || slot.classCode}
+                        {slot.className || slot.classCode}
                       </h4>
-                      {!isStudent && slot.subjectName && (
+                      {slot.subjectName && (
                         <p className="timetable-slot-subject">{slot.subjectName}</p>
                       )}
                       <div className="timetable-slot-meta">

@@ -2119,6 +2119,8 @@ tbody tr:hover { background: var(--border-light); }
   color: var(--ink);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-xs);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .timetable-slot-card:hover:not(:disabled) {
@@ -2143,12 +2145,20 @@ tbody tr:hover { background: var(--border-light); }
 .timetable-slot-card h4 {
   margin: 6px 0 0;
   font-size: 0.95rem;
+  max-width: 100%;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .timetable-slot-subject {
   margin: 4px 0 0;
   font-size: 0.8rem;
   color: var(--ink-tertiary);
+  max-width: 100%;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .timetable-slot-meta {
@@ -2158,6 +2168,7 @@ tbody tr:hover { background: var(--border-light); }
   margin-top: 8px;
   font-size: 0.78rem;
   color: var(--ink-secondary);
+  max-width: 100%;
 }
 
 .timetable-slot-cta {
