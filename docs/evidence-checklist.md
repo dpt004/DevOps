@@ -1,9 +1,9 @@
-# Checklist minh chứng demo
+# Checklist Minh Chứng Demo
 
 ## System
 
-- Frontend load được trên URL demo/production.
-- Browser console không có lỗi nghiêm trọng.
+- Frontend load được trên URL production.
+- Browser Console không có lỗi nghiêm trọng.
 - Backend `/api/health` trả `status: ok`.
 - API đăng nhập trả token.
 - API danh sách lớp/sinh viên/trạng thái điểm danh trả dữ liệu.
@@ -11,15 +11,15 @@
 Lệnh gợi ý:
 
 ```bash
-curl http://localhost:4000/api/health
+curl https://<render-backend>.onrender.com/api/health
 ```
 
-## Docker
+## Docker Local/CI
 
 - Có `backend/Dockerfile`.
 - Có `frontend/Dockerfile`.
 - Có `docker-compose.yml`.
-- Chạy được:
+- Chạy local được:
 
 ```bash
 docker compose up -d --build
@@ -30,12 +30,12 @@ docker compose logs backend --tail 100
 Ảnh cần lưu:
 
 - Build image thành công.
-- Container backend/mysql healthy.
+- Container backend/mysql healthy khi chạy local.
 - Log backend có `database migration completed`, `database seed completed`, `backend listening`.
 
 ## CI
 
-- GitHub Actions chạy khi push/pull request.
+- GitHub Actions chạy khi push/pull request vào `main` hoặc `dev`.
 - Backend có `npm ci`, lint, test, build.
 - Frontend có `npm ci`, lint, test, build.
 - Docker job có `docker compose config` và `docker compose build`.
@@ -50,33 +50,35 @@ docker compose logs backend --tail 100
 - Có `.env.example`.
 - `.env` không được commit.
 - Không hardcode secret trong source.
-- Khi demo production phải sửa `CORS_ORIGIN`, `AUTH_TOKEN_SECRET`, mật khẩu database.
+- Vercel có `VITE_API_BASE_URL`.
+- Render có `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL`, `DB_SSL_CA_BASE64`, `CORS_ORIGIN`, `AUTH_TOKEN_SECRET`.
+- Khi demo production phải che password, token secret và CA certificate.
 
 ## Deploy
 
-- Có URL production hoặc môi trường VPS/WSL Ubuntu chạy Docker Compose.
+- Frontend production chạy trên Vercel.
+- Backend production chạy trên Render.
+- Database production chạy trên Aiven MySQL.
 - URL production hiện tại: `https://sasdau.vercel.app`.
-- Chứng minh redeploy được:
-
-```bash
-git pull
-docker compose up -d --build
-docker compose ps
-```
+- Backend API production dùng domain Render: `https://<render-backend>.onrender.com`.
+- Chứng minh redeploy được bằng Vercel Deployments và Render Deploys.
 
 Ảnh cần lưu:
 
+- Vercel deployment succeeded.
 - Frontend production load được.
+- Render backend deploy succeeded.
 - Backend health production OK.
-- Log container production.
+- Aiven MySQL ở trạng thái `Running`.
+- Render logs backend start thành công.
 
 ## Debug
 
 Chuẩn bị ít nhất 3 incident:
 
-- Backend không kết nối MySQL.
-- Port bị chiếm.
-- CORS/ENV sai.
+- Backend Render không kết nối Aiven MySQL.
+- CORS/ENV sai giữa Vercel và Render.
+- Port bị chiếm khi chạy Docker local.
 
 Mỗi incident cần có:
 
@@ -87,11 +89,11 @@ Mỗi incident cần có:
 - Cách phòng tránh.
 - Ảnh trước/sau khi fix.
 
-## Role trình bày
+## Role Trình Bày
 
 | Vai trò | Nội dung nên trình bày |
 | --- | --- |
 | Backend | API, database schema, auth, attendance logic |
 | Frontend | UI, luồng điểm danh, import, report |
-| DevOps | Docker, CI/CD, deploy, ENV, logging/debug |
+| DevOps | Docker local/CI, GitHub Actions, Vercel, Render, Aiven, ENV, logging/debug |
 | QA/Docs | Test case, incident report, checklist minh chứng |

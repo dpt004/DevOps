@@ -1,203 +1,236 @@
-# Hướng dẫn triển khai
+# Hướng Dẫn Triển Khai
 
-## Mục tiêu deploy
+## Mục Tiêu Deploy
 
-Đồ án DevOps không chỉ yêu cầu chạy local, mà cần chứng minh hệ thống có thể chạy trên môi trường production hoặc môi trường tương đương production. Cách triển khai khuyến nghị cho dự án này là Docker Compose trên VPS/WSL Ubuntu.
+Dự án được triển khai production bằng các dịch vụ cloud:
 
-## Thành phần triển khai
+- Frontend: Vercel, build từ thư mục `frontend/`.
+- Backend API: Render Web Service, build từ `backend/Dockerfile`.
+- Database: Aiven MySQL.
 
-| Service | Image/build | Port |
+Docker Compose vẫn được dùng cho chạy local, kiểm thử môi trường tương đương production và job CI kiểm tra cấu hình/build container. Production hiện tại không deploy trên VPS/WSL Ubuntu.
+
+## Kiến Trúc Production
+
+```mermaid
+flowchart LR
+  User["User Browser"] --> Vercel["Vercel Frontend"]
+  Vercel --> Render["Render Backend API"]
+  Render --> Aiven["Aiven MySQL"]
+  GitHub["GitHub Repository"] --> Actions["GitHub Actions CI"]
+  GitHub --> Vercel
+  GitHub --> Render
+```
+
+| Thành phần | Nền tảng | Cấu hình chính |
 | --- | --- | --- |
-| `frontend` | Build từ `frontend/Dockerfile`, serve bằng Nginx | `${FRONTEND_PORT:-8080}:80` |
-| `backend` | Build từ `backend/Dockerfile` | `${BACKEND_PORT:-4000}:4000` |
-| `mysql` | `mysql:8.4` | `${MYSQL_PORT:-3307}:3306` |
-| `adminer` | `adminer:4` | `8083:8080` |
+| Frontend | Vercel | Root directory `frontend`, framework Vite, output `dist` |
+| Backend | Render | Web Service dùng Dockerfile `backend/Dockerfile` |
+| Database | Aiven | MySQL, SSL required |
+| CI | GitHub Actions | Lint, test, build backend/frontend, validate Docker |
 
-## Chuẩn bị server
+## 1. Chuẩn Bị Repository
 
-Trên Ubuntu VPS hoặc WSL Ubuntu:
-
-```bash
-sudo apt update
-sudo apt install -y git ca-certificates curl
-```
-
-Cài Docker theo tài liệu chính thức hoặc dùng Docker Desktop nếu chạy WSL. Kiểm tra:
+Đẩy code lên GitHub:
 
 ```bash
-docker --version
-docker compose version
+git add .
+git commit -m "docs: update cloud deployment guide"
+git push origin main
 ```
 
-## Lấy source code
+Trước khi deploy, mở tab Actions trên GitHub và bảo đảm workflow `CI` pass.
+
+## 2. Tạo Database Trên Aiven
+
+1. Mở Aiven Console.
+2. Tạo service MySQL.
+3. Chờ service chuyển sang trạng thái `Running`.
+4. Trong phần Connection information, copy các giá trị:
+
+```text
+Host
+Port
+Database name
+User
+Password
+CA certificate
+```
+
+Nếu backend dùng biến `DB_SSL_CA_BASE64`, tải CA certificate về rồi convert sang Base64.
+
+Linux/macOS:
 
 ```bash
-git clone https://github.com/dpt004/DevOps.git
-cd DevOps
+base64 -w 0 ca.pem
 ```
 
-Nếu đã clone:
-
-```bash
-git pull
-```
-
-## Cấu hình ENV
-
-Tạo file `.env` từ mẫu:
-
-```bash
-cp .env.example .env
-```
-
-Các biến cần sửa khi deploy thật:
-
-| Biến | Ý nghĩa |
-| --- | --- |
-| `DB_NAME` | Tên database |
-| `DB_USER` | User database |
-| `DB_PASSWORD` | Mật khẩu database, không dùng giá trị mẫu |
-| `MYSQL_ROOT_PASSWORD` | Mật khẩu root MySQL |
-| `BACKEND_PORT` | Port public của backend |
-| `FRONTEND_PORT` | Port public của frontend |
-| `CORS_ORIGIN` | URL frontend production |
-| `AUTH_TOKEN_SECRET` | Secret ký token, không dùng giá trị mẫu |
-| `SEED_ADMIN_PASSWORD` | Mật khẩu admin seed ban đầu |
-| `SEED_TEACHER_PASSWORD` | Mật khẩu giảng viên seed |
-| `SEED_STUDENT_PASSWORD` | Mật khẩu sinh viên demo |
-
-Ví dụ khi frontend chạy bằng domain:
-
-```env
-CORS_ORIGIN=https://attendance.example.com
-```
-
-Lưu ý: không commit `.env`. Chỉ commit `.env.example`.
-
-## Build và chạy hệ thống
-
-```bash
-docker compose up -d --build
-```
-
-Kiểm tra container:
-
-```bash
-docker compose ps
-```
-
-Kết quả cần có:
-
-- `mysql` healthy.
-- `backend` healthy.
-- `frontend` running.
-- `adminer` running nếu cần xem database.
-
-## Kiểm tra sau deploy
-
-Backend health:
-
-```bash
-curl http://localhost:4000/api/health
-```
-
-Frontend:
-
-```bash
-curl -I http://localhost:8080
-```
-
-Smoke test trên Windows:
+Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("ca.pem"))
 ```
 
-Smoke test trên Linux:
+## 3. Deploy Backend Trên Render
 
-```bash
-bash scripts/smoke-test.sh
+1. Mở Render Dashboard.
+2. Tạo Web Service hoặc Blueprint từ repository GitHub.
+3. Nếu tạo Web Service thủ công:
+   - Runtime/build: Docker.
+   - Dockerfile: `backend/Dockerfile`.
+   - Root directory theo cấu hình Render hoặc dùng `render.yaml` ở root repository.
+4. Thêm environment variables từ Aiven và cấu hình ứng dụng:
+
+```text
+DB_HOST=<aiven mysql host>
+DB_PORT=<aiven mysql port>
+DB_NAME=<aiven database name>
+DB_USER=<aiven database user>
+DB_PASSWORD=<aiven database password>
+DB_SSL=true
+DB_SSL_CA_BASE64=<base64 ca certificate>
+CORS_ORIGIN=*
+AUTH_TOKEN_SECRET=<strong random secret>
+SEED_ADMIN_PASSWORD=<strong admin password>
+SEED_TEACHER_PASSWORD=<strong teacher password>
+SEED_STUDENT_PASSWORD=<strong student password>
 ```
 
-## Xem log
+Dùng `CORS_ORIGIN=*` chỉ cho lần deploy đầu nếu chưa biết URL Vercel. Sau khi frontend có URL production, đổi về đúng domain Vercel.
+
+Sau khi deploy backend, kiểm tra health:
+
+```text
+https://<render-backend>.onrender.com/api/health
+```
+
+Kết quả cần có `status: ok`. Nếu response có trường database thì database cũng cần ở trạng thái `ok`.
+
+## 4. Deploy Frontend Trên Vercel
+
+1. Mở Vercel Dashboard.
+2. Add New Project và import repository GitHub.
+3. Cấu hình:
+
+```text
+Root Directory: frontend
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
+```
+
+4. Thêm environment variable:
+
+```text
+VITE_API_BASE_URL=https://<render-backend>.onrender.com/api
+```
+
+5. Deploy và lấy URL production, ví dụ:
+
+```text
+https://sasdau.vercel.app
+```
+
+## 5. Khóa CORS Theo Domain Vercel
+
+Sau khi có URL frontend, quay lại Render > backend service > Environment.
+
+Đổi:
+
+```text
+CORS_ORIGIN=https://sasdau.vercel.app
+```
+
+Sau đó redeploy hoặc restart backend.
+
+## 6. Kiểm Tra Sau Deploy
 
 Backend:
 
 ```bash
-docker compose logs backend --tail 100
+curl https://<render-backend>.onrender.com/api/health
 ```
+
+Frontend:
+
+```text
+https://sasdau.vercel.app
+```
+
+Kiểm tra bằng trình duyệt:
+
+- Trang frontend load được.
+- DevTools Console không có lỗi runtime nghiêm trọng.
+- Login gọi đúng endpoint Render.
+- API login trả response, không bị `pending`.
+- Các màn hình danh sách lớp, sinh viên, điểm danh và báo cáo có dữ liệu.
+
+## 7. Redeploy
+
+Frontend:
+
+1. Push code lên GitHub.
+2. Vercel tự build lại nếu project đã kết nối repository.
+3. Kiểm tra deployment mới trong Vercel Dashboard.
+
+Backend:
+
+1. Push code lên GitHub.
+2. Render tự deploy lại nếu bật auto deploy.
+3. Nếu cần chạy thủ công: Render Dashboard > backend service > Manual Deploy.
+4. Kiểm tra logs và `/api/health`.
 
 Database:
 
-```bash
-docker compose logs mysql --tail 100
-```
+- Không tạo lại database khi redeploy backend/frontend.
+- Nếu Aiven service đang `Rebuilding`, chờ về `Running` rồi restart backend Render.
+- Nếu đổi password hoặc host database, cập nhật Render environment variables rồi redeploy backend.
 
-Frontend/Nginx:
+## 8. Rollback Cơ Bản
 
-```bash
-docker compose logs frontend --tail 100
-```
+Frontend trên Vercel:
 
-## Redeploy
+- Vào Vercel Project > Deployments.
+- Chọn deployment ổn định trước đó.
+- Promote deployment đó lên production.
 
-Khi có code mới:
+Backend trên Render:
 
-```bash
-git pull
-docker compose up -d --build
-docker compose ps
-```
+- Vào Render service > Deploys.
+- Chọn deploy ổn định trước đó nếu Render còn lưu.
+- Hoặc revert commit trên GitHub rồi deploy lại.
 
-Nếu chỉ muốn restart:
-
-```bash
-docker compose restart backend frontend
-```
-
-## Rollback cơ bản
-
-Xem commit gần nhất:
+Ví dụ revert bằng Git:
 
 ```bash
 git log --oneline -5
+git revert <commit_sha>
+git push origin main
 ```
 
-Quay về commit ổn định:
-
-```bash
-git checkout <commit_sha>
-docker compose up -d --build
-```
-
-Sau khi demo rollback, quay lại `main`:
-
-```bash
-git checkout main
-git pull
-docker compose up -d --build
-```
-
-## CI/CD flow
+## 9. CI/CD Flow
 
 ```mermaid
 flowchart LR
-  Dev["Developer push / PR"] --> GitHub["GitHub Actions"]
-  GitHub --> Backend["Backend: npm ci + lint + test + build"]
-  GitHub --> Frontend["Frontend: npm ci + lint + test + build"]
-  Backend --> Docker["docker compose config + build"]
-  Frontend --> Docker
-  Docker --> Deploy["Deploy/Redeploy trên VPS bằng Docker Compose"]
+  Dev["Developer push / PR"] --> GitHub["GitHub"]
+  GitHub --> Actions["GitHub Actions CI"]
+  Actions --> BackendCI["Backend: npm ci + lint + test + build"]
+  Actions --> FrontendCI["Frontend: npm ci + lint + test + build"]
+  Actions --> DockerCI["Docker: compose config + build"]
+  GitHub --> Vercel["Vercel auto deploy frontend"]
+  GitHub --> Render["Render auto/manual deploy backend"]
+  Render --> Aiven["Aiven MySQL"]
 ```
 
-Hiện tại repository có CI tự động. Phần CD thực tế được thực hiện bằng thao tác redeploy trên VPS/WSL Ubuntu theo các bước ở trên. Khi demo cần mở GitHub Actions để chứng minh pipeline pass và mở terminal VPS để chứng minh redeploy được.
+CI dùng để chứng minh chất lượng build/test. CD thực tế được thực hiện qua Vercel cho frontend và Render cho backend.
 
-## Minh chứng cần lưu
+## 10. Minh Chứng Cần Lưu
 
-- Ảnh GitHub Actions pass.
-- Ảnh `docker compose up -d --build`.
-- Ảnh `docker compose ps` có backend/mysql healthy.
-- Ảnh frontend production mở được.
-- Ảnh `/api/health` trả `status: ok`.
-- Ảnh `docker compose logs backend --tail 100`.
-- Ảnh thao tác redeploy sau `git pull`.
+- Ảnh GitHub Actions workflow `CI` pass.
+- Ảnh Render backend deploy succeeded.
+- Ảnh Render environment đã cấu hình biến cần thiết, che các secret.
+- Ảnh Aiven MySQL trạng thái `Running`.
+- Ảnh backend `/api/health` trả `status: ok`.
+- Ảnh Vercel frontend production load được.
+- Ảnh DevTools Network login gọi endpoint Render và trả response thành công.
+- Ảnh Render logs khi backend start thành công.
