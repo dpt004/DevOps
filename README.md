@@ -114,6 +114,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
 
 Chi tiết xem [Deployment](docs/deployment.md).
 
+## Seed Dữ Liệu Demo
+
+Backend có script thêm dữ liệu demo cho production:
+
+```bash
+npm run seed:demo
+```
+
+Script này thêm lớp, giảng viên demo, sinh viên demo, lịch học và các buổi điểm danh trước đây. Script dùng upsert nên có thể chạy lại mà không tạo trùng dữ liệu.
+
+Chỉ chạy script ở môi trường có ENV trỏ tới database cần seed, ví dụ Render/Aiven production hoặc local đã cấu hình DB production.
+
 ## API Chính
 
 - `GET /api/health`

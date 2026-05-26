@@ -165,7 +165,25 @@ Kiểm tra bằng trình duyệt:
 - API login trả response, không bị `pending`.
 - Các màn hình danh sách lớp, sinh viên, điểm danh và báo cáo có dữ liệu.
 
-## 7. Redeploy
+## 7. Seed Dữ Liệu Demo
+
+Sau khi backend đã deploy và kết nối được Aiven MySQL, có thể seed dữ liệu demo:
+
+```bash
+npm run seed:demo
+```
+
+Script này thêm:
+
+- 5 lớp demo.
+- 12 sinh viên cho mỗi lớp.
+- Giảng viên demo.
+- Lịch học cho từng lớp.
+- 8 buổi điểm danh gần nhất theo lịch học của từng lớp.
+
+Script dùng `ON DUPLICATE KEY UPDATE`, nên chạy lại không tạo trùng lớp/sinh viên/điểm danh. Không dùng script này nếu ENV đang trỏ tới database không muốn thay đổi.
+
+## 8. Redeploy
 
 Frontend:
 
@@ -186,7 +204,7 @@ Database:
 - Nếu Aiven service đang `Rebuilding`, chờ về `Running` rồi restart backend Render.
 - Nếu đổi password hoặc host database, cập nhật Render environment variables rồi redeploy backend.
 
-## 8. Rollback Cơ Bản
+## 9. Rollback Cơ Bản
 
 Frontend trên Vercel:
 
@@ -208,7 +226,7 @@ git revert <commit_sha>
 git push origin main
 ```
 
-## 9. CI/CD Flow
+## 10. CI/CD Flow
 
 ```mermaid
 flowchart LR
@@ -224,7 +242,7 @@ flowchart LR
 
 CI dùng để chứng minh chất lượng build/test. CD thực tế được thực hiện qua Vercel cho frontend và Render cho backend.
 
-## 10. Minh Chứng Cần Lưu
+## 11. Minh Chứng Cần Lưu
 
 - Ảnh GitHub Actions workflow `CI` pass.
 - Ảnh Render backend deploy succeeded.
