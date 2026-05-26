@@ -1,8 +1,8 @@
-import { closePool, query } from "../src/db/pool.js";
-import { migrate, seed } from "../src/db/schema.js";
-import { config } from "../src/config.js";
-import { logger } from "../src/logger.js";
-import { hashPassword } from "../src/services/authService.js";
+import { closePool, query } from "../db/pool.js";
+import { migrate, seed } from "../db/schema.js";
+import { config } from "../config.js";
+import { logger } from "../logger.js";
+import { hashPassword } from "../services/authService.js";
 
 const demoTeachers = [
   {

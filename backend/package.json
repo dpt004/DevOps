@@ -9,7 +9,7 @@
     "lint": "node scripts/lint.mjs src tests scripts",
     "test": "node --test",
     "build": "node scripts/build-check.mjs",
-    "seed:demo": "node scripts/seed_demo_data.mjs"
+    "seed:demo": "node src/scripts/seed_demo_data.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
