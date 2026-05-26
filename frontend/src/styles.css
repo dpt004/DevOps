@@ -1,19 +1,19 @@
 /* ═══════════════════════════════════════════════════════════
-   STUDENT ATTENDANCE SYSTEM — Premium Dashboard Theme
-   Design: Dark header + Light content, Indigo/Emerald palette
+   STUDENT ATTENDANCE SYSTEM — White Theme
+   Design: White sidebar + Light content, Indigo/Emerald palette
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #f8fafc; /* Premium off-white slate background */
+  --bg: #ffffff;
   --surface: #ffffff;
-  --ink: #0f172a; /* Deep Slate text */
-  --ink-secondary: #475569; /* Slate secondary */
-  --ink-tertiary: #94a3b8; /* Slate tertiary */
-  --border: #e2e8f0; /* Smooth border slate-200 */
-  --border-light: #f1f5f9; /* Ultra-light border slate-100 */
+  --ink: #0f172a;
+  --ink-secondary: #475569;
+  --ink-tertiary: #94a3b8;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
 
   /* Brand - Modern Indigo/Violet Accent */
-  --primary: #4f46e5; /* Royal Indigo */
+  --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-light: #e0e7ff;
   --primary-glow: rgba(79, 70, 229, 0.06);
@@ -23,31 +23,38 @@
   --accent-hover: #d97706;
 
   /* Semantic - Modern Soft Palette */
-  --success: #10b981; /* Emerald-500 */
+  --success: #10b981;
   --success-light: #ecfdf5;
   --success-border: rgba(16, 185, 129, 0.12);
-  --danger: #ef4444; /* Red-500 */
+  --danger: #ef4444;
   --danger-light: #fef2f2;
   --danger-border: rgba(239, 68, 68, 0.12);
-  --warning: #f59e0b; /* Amber-500 */
+  --warning: #f59e0b;
   --warning-light: #fffbeb;
   --warning-border: rgba(245, 158, 11, 0.12);
-  --info: #3b82f6; /* Blue-500 */
+  --info: #3b82f6;
   --info-light: #eff6ff;
   --info-border: rgba(59, 130, 246, 0.12);
 
-  /* Sidebar Styles (Luxurious Deep Slate Dark) */
-  --sidebar-bg: #0b0f19; /* High-end dark blue-gray */
-  --sidebar-border: rgba(255, 255, 255, 0.05);
-  --sidebar-ink: #f8fafc;
+  /* Sidebar Styles (White/Light) */
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ink: #0f172a;
   --sidebar-muted: #64748b;
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-  --sidebar-hover-ink: #ffffff;
+  --sidebar-hover-bg: #f1f5f9;
+  --sidebar-hover-ink: #0f172a;
   --sidebar-active-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   --sidebar-active-ink: #ffffff;
-  --sidebar-active-glow: rgba(99, 102, 241, 0.35);
+  --sidebar-active-glow: rgba(99, 102, 241, 0.25);
 
-  /* Radius & Shadows - Modern Apple-like soft elevations */
+  /* Extra variables */
+  --surface-light: #f8fafc;
+  --radius-full: 50%;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+
+  /* Radius & Shadows */
   --radius: 10px;
   --radius-lg: 16px;
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.02);
@@ -726,6 +733,7 @@ tbody tr:hover { background: var(--border-light); }
   background: var(--sidebar-bg);
   color: var(--sidebar-ink);
   border-right: 1px solid var(--sidebar-border);
+  box-shadow: 2px 0 12px rgba(0,0,0,0.03);
   display: flex;
   flex-direction: column;
   padding: 32px 24px;
@@ -750,8 +758,8 @@ tbody tr:hover { background: var(--border-light); }
 }
 
 .sidebar-brand svg {
-  stroke: #818cf8;
-  filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.4));
+  stroke: #4f46e5;
+  filter: drop-shadow(0 0 10px rgba(79, 70, 229, 0.2));
 }
 
 .sidebar-brand h2 {
@@ -760,9 +768,6 @@ tbody tr:hover { background: var(--border-light); }
   color: var(--sidebar-ink);
   letter-spacing: -0.03em;
   margin: 0;
-  background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .sidebar-nav {
@@ -822,8 +827,8 @@ tbody tr:hover { background: var(--border-light); }
 }
 
 .sidebar-profile-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--surface-light);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
   display: flex;
@@ -831,7 +836,6 @@ tbody tr:hover { background: var(--border-light); }
   gap: 12px;
   box-shadow: var(--shadow-sm);
   margin-top: 12px;
-  backdrop-filter: blur(4px);
 }
 
 .sidebar-user {
@@ -852,7 +856,7 @@ tbody tr:hover { background: var(--border-light); }
   font-weight: 700;
   font-size: 0.95rem;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid #fff;
 }
 
 .user-info {
@@ -879,8 +883,8 @@ tbody tr:hover { background: var(--border-light); }
 
 .sidebar-profile-card .health {
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
+  border: 1px solid var(--border);
   color: var(--sidebar-muted);
   padding: 4px 12px;
   font-size: 0.78rem;
@@ -913,9 +917,9 @@ tbody tr:hover { background: var(--border-light); }
   height: 38px;
   width: 100%;
   border-radius: var(--radius);
-  background: rgba(225, 29, 72, 0.05);
+  background: var(--danger-light);
   color: var(--danger);
-  border: 1px solid rgba(225, 29, 72, 0.15);
+  border: 1px solid var(--danger-border);
   box-shadow: none;
   font-weight: 600;
   font-size: 0.88rem;
@@ -1045,7 +1049,7 @@ tbody tr:hover { background: var(--border-light); }
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px solid var(--header-border);
+    border-top: 1px solid var(--border);
     padding-top: 16px;
     margin-top: 0;
   }
@@ -1110,7 +1114,7 @@ tbody tr:hover { background: var(--border-light); }
   background: var(--sidebar-active-bg) !important;
   color: var(--sidebar-active-ink) !important;
   box-shadow: 0 4px 14px var(--sidebar-active-glow) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(99, 102, 241, 0.15) !important;
   position: relative;
 }
 .sidebar-nav button.active svg {
@@ -1126,7 +1130,7 @@ tbody tr:hover { background: var(--border-light); }
   width: 4px;
   background: #ffffff;
   border-radius: 0 4px 4px 0;
-  box-shadow: 0 0 8px #ffffff;
+  box-shadow: 0 0 8px rgba(255,255,255,0.5);
 }
 
 /* ── Full Width spacious Filters Bar ── */
