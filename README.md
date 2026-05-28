@@ -1,5 +1,5 @@
 # Student Attendance System
-
+//Test CI
 Hệ thống quản lý điểm danh sinh viên theo ngày. Dự án gồm React frontend, Express backend API, MySQL database, Docker Compose cho môi trường local/CI, GitHub Actions CI, và production deploy bằng Vercel + Render + Aiven.
 
 ## Chức Năng
